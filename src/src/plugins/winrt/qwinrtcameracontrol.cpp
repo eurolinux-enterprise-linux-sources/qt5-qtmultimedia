@@ -1,34 +1,37 @@
 /****************************************************************************
 **
-** Copyright (C) 2015 The Qt Company Ltd and/or its subsidiary(-ies).
-** Contact: http://www.qt.io/licensing/
+** Copyright (C) 2016 The Qt Company Ltd and/or its subsidiary(-ies).
+** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Toolkit.
 **
-** $QT_BEGIN_LICENSE:LGPL3$
+** $QT_BEGIN_LICENSE:LGPL$
 ** Commercial License Usage
 ** Licensees holding valid commercial Qt licenses may use this file in
 ** accordance with the commercial license agreement provided with the
 ** Software or, alternatively, in accordance with the terms contained in
 ** a written agreement between you and The Qt Company. For licensing terms
-** and conditions see http://www.qt.io/terms-conditions. For further
-** information use the contact form at http://www.qt.io/contact-us.
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
 **
 ** GNU Lesser General Public License Usage
 ** Alternatively, this file may be used under the terms of the GNU Lesser
 ** General Public License version 3 as published by the Free Software
-** Foundation and appearing in the file LICENSE.LGPLv3 included in the
+** Foundation and appearing in the file LICENSE.LGPL3 included in the
 ** packaging of this file. Please review the following information to
 ** ensure the GNU Lesser General Public License version 3 requirements
-** will be met: https://www.gnu.org/licenses/lgpl.html.
+** will be met: https://www.gnu.org/licenses/lgpl-3.0.html.
 **
 ** GNU General Public License Usage
 ** Alternatively, this file may be used under the terms of the GNU
-** General Public License version 2.0 or later as published by the Free
-** Software Foundation and appearing in the file LICENSE.GPL included in
-** the packaging of this file. Please review the following information to
-** ensure the GNU General Public License version 2.0 requirements will be
-** met: http://www.gnu.org/licenses/gpl-2.0.html.
+** General Public License version 2.0 or (at your option) the GNU General
+** Public license version 3 or any later version approved by the KDE Free
+** Qt Foundation. The licenses are as published by the Free Software
+** Foundation and appearing in the file LICENSE.GPL2 and LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-2.0.html and
+** https://www.gnu.org/licenses/gpl-3.0.html.
 **
 ** $QT_END_LICENSE$
 **
@@ -39,10 +42,12 @@
 #include "qwinrtvideodeviceselectorcontrol.h"
 #include "qwinrtcameraimagecapturecontrol.h"
 #include "qwinrtimageencodercontrol.h"
+#include "qwinrtcameraflashcontrol.h"
 #include "qwinrtcamerafocuscontrol.h"
 #include "qwinrtcameralockscontrol.h"
 
 #include <QtCore/qfunctions_winrt.h>
+#include <QtCore/QMutex>
 #include <QtCore/QPointer>
 #include <QtGui/QGuiApplication>
 #include <private/qeventdispatcher_winrt_p.h>
@@ -223,8 +228,6 @@ public:
     {
         Q_ASSERT(m_videoRenderer);
 
-        InitializeCriticalSectionEx(&m_mutex, 0, 0);
-
         HRESULT hr;
         hr = MFCreateEventQueue(&m_eventQueue);
         Q_ASSERT_SUCCEEDED(hr);
@@ -234,9 +237,8 @@ public:
 
     ~MediaStream()
     {
-        CriticalSectionLocker locker(&m_mutex);
+        QMutexLocker locker(&m_mutex);
         m_eventQueue->Shutdown();
-        DeleteCriticalSection(&m_mutex);
     }
 
     HRESULT RequestSample()
@@ -250,30 +252,30 @@ public:
 
     HRESULT __stdcall GetEvent(DWORD flags, IMFMediaEvent **event) Q_DECL_OVERRIDE
     {
-        EnterCriticalSection(&m_mutex);
+        QMutexLocker locker(&m_mutex);
         // Create an extra reference to avoid deadlock
         ComPtr<IMFMediaEventQueue> eventQueue = m_eventQueue;
-        LeaveCriticalSection(&m_mutex);
+        locker.unlock();
 
         return eventQueue->GetEvent(flags, event);
     }
 
     HRESULT __stdcall BeginGetEvent(IMFAsyncCallback *callback, IUnknown *state) Q_DECL_OVERRIDE
     {
-        CriticalSectionLocker locker(&m_mutex);
+        QMutexLocker locker(&m_mutex);
         HRESULT hr = m_eventQueue->BeginGetEvent(callback, state);
         return hr;
     }
 
     HRESULT __stdcall EndGetEvent(IMFAsyncResult *result, IMFMediaEvent **event) Q_DECL_OVERRIDE
     {
-        CriticalSectionLocker locker(&m_mutex);
+        QMutexLocker locker(&m_mutex);
         return m_eventQueue->EndGetEvent(result, event);
     }
 
     HRESULT __stdcall QueueEvent(MediaEventType eventType, const GUID &extendedType, HRESULT status, const PROPVARIANT *value) Q_DECL_OVERRIDE
     {
-        CriticalSectionLocker locker(&m_mutex);
+        QMutexLocker locker(&m_mutex);
         return m_eventQueue->QueueEventParamVar(eventType, extendedType, status, value);
     }
 
@@ -368,7 +370,7 @@ public:
     }
 
 private:
-    CRITICAL_SECTION m_mutex;
+    QMutex m_mutex;
     ComPtr<IMFMediaType> m_type;
     IMFMediaSink *m_sink;
     ComPtr<IMFMediaEventQueue> m_eventQueue;
@@ -551,6 +553,7 @@ public:
     QPointer<QWinRTVideoDeviceSelectorControl> videoDeviceSelector;
     QPointer<QWinRTCameraImageCaptureControl> imageCaptureControl;
     QPointer<QWinRTImageEncoderControl> imageEncoderControl;
+    QPointer<QWinRTCameraFlashControl> cameraFlashControl;
     QPointer<QWinRTCameraFocusControl> cameraFocusControl;
     QPointer<QWinRTCameraLocksControl> cameraLocksControl;
     QAtomicInt framesMapped;
@@ -575,6 +578,7 @@ QWinRTCameraControl::QWinRTCameraControl(QObject *parent)
     d->videoDeviceSelector = new QWinRTVideoDeviceSelectorControl(this);
     d->imageCaptureControl = new QWinRTCameraImageCaptureControl(this);
     d->imageEncoderControl = new QWinRTImageEncoderControl(this);
+    d->cameraFlashControl = new QWinRTCameraFlashControl(this);
     d->cameraFocusControl = new QWinRTCameraFocusControl(this);
     d->cameraLocksControl = new QWinRTCameraLocksControl(this);
 
@@ -812,6 +816,12 @@ QImageEncoderControl *QWinRTCameraControl::imageEncoderControl() const
     return d->imageEncoderControl;
 }
 
+QCameraFlashControl *QWinRTCameraControl::cameraFlashControl() const
+{
+    Q_D(const QWinRTCameraControl);
+    return d->cameraFlashControl;
+}
+
 QCameraFocusControl *QWinRTCameraControl::cameraFocusControl() const
 {
     Q_D(const QWinRTCameraControl);
@@ -872,7 +882,8 @@ HRESULT QWinRTCameraControl::initialize()
         emit statusChanged(d->status);
     }
 
-    HRESULT hr = QEventDispatcherWinRT::runOnXamlThread([this, d]() {
+    boolean isFocusSupported;
+    HRESULT hr = QEventDispatcherWinRT::runOnXamlThread([this, d, &isFocusSupported]() {
         HRESULT hr;
         ComPtr<IInspectable> capture;
         hr = RoActivateInstance(Wrappers::HString::MakeReference(RuntimeClass_Windows_Media_Capture_MediaCapture).Get(),
@@ -937,7 +948,8 @@ HRESULT QWinRTCameraControl::initialize()
         hr = advancedVideoDeviceController->get_FocusControl(&d->focusControl);
         Q_ASSERT_SUCCEEDED(hr);
 
-        boolean isFocusSupported;
+        d->cameraFlashControl->initialize(advancedVideoDeviceController);
+
         hr = d->focusControl->get_Supported(&isFocusSupported);
         Q_ASSERT_SUCCEEDED(hr);
         if (isFocusSupported) {
@@ -946,11 +958,7 @@ HRESULT QWinRTCameraControl::initialize()
                 qCDebug(lcMMCamera) << "Focus supported, but no control for regions of interest available";
             hr = initializeFocus();
             Q_ASSERT_SUCCEEDED(hr);
-        } else {
-            d->cameraFocusControl->setSupportedFocusMode(0);
-            d->cameraFocusControl->setSupportedFocusPointMode(QSet<QCameraFocus::FocusPointMode>());
         }
-        d->cameraLocksControl->initialize();
 
         Q_ASSERT_SUCCEEDED(hr);
         ComPtr<IMediaDeviceController> deviceController;
@@ -993,7 +1001,7 @@ HRESULT QWinRTCameraControl::initialize()
         // Set preview resolution.
         QVector<QSize> filtered;
         const float captureAspectRatio = float(captureResolution.width()) / captureResolution.height();
-        foreach (const QSize &resolution, previewResolutions) {
+        for (const QSize &resolution : qAsConst(previewResolutions)) {
             const float aspectRatio = float(resolution.width()) / resolution.height();
             if (qAbs(aspectRatio - captureAspectRatio) <= ASPECTRATIO_EPSILON)
                 filtered.append(resolution);
@@ -1025,6 +1033,12 @@ HRESULT QWinRTCameraControl::initialize()
 
         return S_OK;
     });
+
+    if (!isFocusSupported) {
+        d->cameraFocusControl->setSupportedFocusMode(0);
+        d->cameraFocusControl->setSupportedFocusPointMode(QSet<QCameraFocus::FocusPointMode>());
+    }
+    d->cameraLocksControl->initialize();
 
     if (SUCCEEDED(hr) && d->state != QCamera::LoadedState) {
         d->state = QCamera::LoadedState;
@@ -1225,30 +1239,34 @@ bool QWinRTCameraControl::focus()
 {
     Q_D(QWinRTCameraControl);
     HRESULT hr;
-    AsyncStatus status = AsyncStatus::Completed;
-    if (d->focusOperation) {
-        ComPtr<IAsyncInfo> info;
-        hr = d->focusOperation.As(&info);
-        Q_ASSERT_SUCCEEDED(hr);
-        info->get_Status(&status);
-    }
-
-    if (!d->focusControl || status == AsyncStatus::Started)
+    if (!d->focusControl)
         return false;
 
     QEventDispatcherWinRT::runOnXamlThread([&d, &hr]() {
+        if (d->focusOperation) {
+            ComPtr<IAsyncInfo> info;
+            hr = d->focusOperation.As(&info);
+            Q_ASSERT_SUCCEEDED(hr);
+
+            AsyncStatus status = AsyncStatus::Completed;
+            hr = info->get_Status(&status);
+            Q_ASSERT_SUCCEEDED(hr);
+            if (status == AsyncStatus::Started)
+                return E_ASYNC_OPERATION_NOT_STARTED;
+        }
+
         hr = d->focusControl->FocusAsync(&d->focusOperation);
+        Q_ASSERT_SUCCEEDED(hr);
+
+        const long errorCode = HRESULT_CODE(hr);
+        if (errorCode == ERROR_OPERATION_IN_PROGRESS
+                || errorCode == ERROR_WRITE_PROTECT) {
+            return E_ASYNC_OPERATION_NOT_STARTED;
+        }
         Q_ASSERT_SUCCEEDED(hr);
         return S_OK;
     });
-    const long errorCode = HRESULT_CODE(hr);
-    if (errorCode == ERROR_OPERATION_IN_PROGRESS
-        || errorCode == ERROR_WRITE_PROTECT) {
-        return false;
-    }
-    Q_ASSERT_SUCCEEDED(hr);
-    hr = QWinRTFunctions::await(d->focusOperation, QWinRTFunctions::ProcessThreadEvents);
-    Q_ASSERT_SUCCEEDED(hr);
+
     return hr == S_OK;
 }
 
@@ -1269,15 +1287,22 @@ bool QWinRTCameraControl::lockFocus()
     Q_D(QWinRTCameraControl);
     if (!d->focusControl)
         return false;
-    ComPtr<IFocusControl2> focusControl2;
-    HRESULT hr = d->focusControl.As(&focusControl2);
-    Q_ASSERT_SUCCEEDED(hr);
+
+    bool result = false;
     ComPtr<IAsyncAction> op;
-    hr = focusControl2->LockAsync(&op);
-    if (HRESULT_CODE(hr) == ERROR_WRITE_PROTECT)
-        return false;
-    Q_ASSERT_SUCCEEDED(hr);
-    return QWinRTFunctions::await(op) == S_OK;
+    HRESULT hr;
+    hr = QEventDispatcherWinRT::runOnXamlThread([d, &result, &op]() {
+        ComPtr<IFocusControl2> focusControl2;
+        HRESULT hr = d->focusControl.As(&focusControl2);
+        Q_ASSERT_SUCCEEDED(hr);
+        hr = focusControl2->LockAsync(&op);
+        if (HRESULT_CODE(hr) == ERROR_WRITE_PROTECT)
+            return S_OK;
+        Q_ASSERT_SUCCEEDED(hr);
+        result = true;
+        return hr;
+    });
+    return result ? (QWinRTFunctions::await(op) == S_OK) : false;
 }
 
 bool QWinRTCameraControl::unlockFocus()
@@ -1285,15 +1310,22 @@ bool QWinRTCameraControl::unlockFocus()
     Q_D(QWinRTCameraControl);
     if (!d->focusControl)
         return false;
-    ComPtr<IFocusControl2> focusControl2;
-    HRESULT hr = d->focusControl.As(&focusControl2);
-    Q_ASSERT_SUCCEEDED(hr);
+
+    bool result = false;
     ComPtr<IAsyncAction> op;
-    hr = focusControl2->UnlockAsync(&op);
-    if (HRESULT_CODE(hr) == ERROR_WRITE_PROTECT)
-        return false;
-    Q_ASSERT_SUCCEEDED(hr);
-    return QWinRTFunctions::await(op) == S_OK;
+    HRESULT hr;
+    hr = QEventDispatcherWinRT::runOnXamlThread([d, &result, &op]() {
+        ComPtr<IFocusControl2> focusControl2;
+        HRESULT hr = d->focusControl.As(&focusControl2);
+        Q_ASSERT_SUCCEEDED(hr);
+        hr = focusControl2->UnlockAsync(&op);
+        if (HRESULT_CODE(hr) == ERROR_WRITE_PROTECT)
+            return S_OK;
+        Q_ASSERT_SUCCEEDED(hr);
+        result = true;
+        return hr;
+    });
+    return result ? (QWinRTFunctions::await(op) == S_OK) : false;
 }
 
 #else // !WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_PHONE_APP)

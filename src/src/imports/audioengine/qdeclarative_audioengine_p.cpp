@@ -1,31 +1,37 @@
 /****************************************************************************
 **
-** Copyright (C) 2015 The Qt Company Ltd.
-** Contact: http://www.qt.io/licensing/
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the plugins of the Qt Toolkit.
 **
-** $QT_BEGIN_LICENSE:LGPL21$
+** $QT_BEGIN_LICENSE:LGPL$
 ** Commercial License Usage
 ** Licensees holding valid commercial Qt licenses may use this file in
 ** accordance with the commercial license agreement provided with the
 ** Software or, alternatively, in accordance with the terms contained in
 ** a written agreement between you and The Qt Company. For licensing terms
-** and conditions see http://www.qt.io/terms-conditions. For further
-** information use the contact form at http://www.qt.io/contact-us.
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
 **
 ** GNU Lesser General Public License Usage
 ** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 or version 3 as published by the Free
-** Software Foundation and appearing in the file LICENSE.LGPLv21 and
-** LICENSE.LGPLv3 included in the packaging of this file. Please review the
-** following information to ensure the GNU Lesser General Public License
-** requirements will be met: https://www.gnu.org/licenses/lgpl.html and
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** General Public License version 3 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL3 included in the
+** packaging of this file. Please review the following information to
+** ensure the GNU Lesser General Public License version 3 requirements
+** will be met: https://www.gnu.org/licenses/lgpl-3.0.html.
 **
-** As a special exception, The Qt Company gives you certain additional
-** rights. These rights are described in The Qt Company LGPL Exception
-** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 2.0 or (at your option) the GNU General
+** Public license version 3 or any later version approved by the KDE Free
+** Qt Foundation. The licenses are as published by the Free Software
+** Foundation and appearing in the file LICENSE.GPL2 and LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-2.0.html and
+** https://www.gnu.org/licenses/gpl-3.0.html.
 **
 ** $QT_END_LICENSE$
 **
@@ -242,7 +248,8 @@ void QDeclarativeAudioEngine::initSound(QDeclarativeSound *sound)
     }
     sound->setAttenuationModelObject(attenuationModel);
 
-    foreach (QDeclarativePlayVariation *playVariation, sound->playlist()) {
+    const auto playList = sound->playlist();
+    for (QDeclarativePlayVariation *playVariation : playList) {
         if (m_samples.contains(playVariation->sample())) {
             playVariation->setSampleObject(
                         qobject_cast<QDeclarativeAudioSample*>(
@@ -449,7 +456,8 @@ void QDeclarativeAudioEngine::componentComplete()
 #ifdef DEBUG_AUDIOENGINE
         qDebug() << "init samples" << m_samples.keys().count();
 #endif
-    foreach (const QString& key, m_samples.keys()) {
+    const auto samplesKeys = m_samples.keys();
+    for (const QString& key : samplesKeys) {
         QDeclarativeAudioSample *sample = qobject_cast<QDeclarativeAudioSample*>(
                                           qvariant_cast<QObject*>(m_samples[key]));
         if (!sample) {
@@ -463,7 +471,8 @@ void QDeclarativeAudioEngine::componentComplete()
 #ifdef DEBUG_AUDIOENGINE
         qDebug() << "init sounds" << m_sounds.keys().count();
 #endif
-    foreach (const QString& key, m_sounds.keys()) {
+    const auto soundsKeys = m_sounds.keys();
+    for (const QString& key : soundsKeys) {
         QDeclarativeSound *sound = qobject_cast<QDeclarativeSound*>(
                                    qvariant_cast<QObject*>(m_sounds[key]));
 
@@ -499,7 +508,7 @@ void QDeclarativeAudioEngine::updateSoundInstances()
     }
 
     QVector3D listenerPosition = this->listener()->position();
-    foreach (QSoundInstance *instance, m_activeSoundInstances) {
+    for (QSoundInstance *instance : qAsConst(m_activeSoundInstances)) {
         if (instance->state() == QSoundInstance::PlayingState
             &&  instance->attenuationEnabled()) {
             instance->update3DVolume(listenerPosition);

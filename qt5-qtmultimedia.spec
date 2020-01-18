@@ -23,13 +23,13 @@
 
 Summary: Qt5 - Multimedia support
 Name:    qt5-%{qt_module}
-Version: 5.6.2
+Version: 5.9.2
 Release: 1%{?dist}
 
 # See LGPL_EXCEPTIONS.txt, LICENSE.GPL3, respectively, for exception details
 License: LGPLv2 with exceptions or GPLv3 with exceptions
 Url:     http://www.qt.io
-Source0: http://download.qt.io/official_releases/qt/5.6/%{version}/submodules/%{qt_module}-opensource-src-%{version}.tar.xz
+Source0: http://download.qt.io/official_releases/qt/5.9/%{version}/submodules/%{qt_module}-opensource-src-%{version}.tar.xz
 
 BuildRequires: cmake
 BuildRequires: qt5-qtbase-devel >= %{version}
@@ -51,9 +51,6 @@ BuildRequires: pkgconfig(openal)
 %endif
 BuildRequires: pkgconfig(xv)
 
-BuildRequires: qt5-qtbase-private-devel
-
-%{?_qt5:Requires: %{_qt5}%{?_isa} = %{_qt5_version}}
 
 %description
 The Qt Multimedia module provides a rich feature set that enables you to
@@ -66,6 +63,9 @@ Summary: Development files for %{name}
 Requires: %{name}%{?_isa} = %{version}-%{release}
 Requires: qt5-qtbase-devel%{?_isa}
 Requires: qt5-qtdeclarative-devel%{?_isa}
+# Qt5Multimedia.pc containts:
+# Libs.private: ... -lpulse-mainloop-glib -lpulse -lglib-2.0
+Requires: pkgconfig(libpulse-mainloop-glib)
 %description devel
 %{summary}.
 
@@ -93,9 +93,7 @@ Requires: %{name}%{?_isa} = %{version}-%{release}
 
 
 %build
-mkdir %{_target_platform}
-pushd %{_target_platform}
-%{qmake_qt5} .. \
+%{qmake_qt5} \
   CONFIG+=git_build \
   GST_VERSION=%{gst}
 
@@ -104,20 +102,18 @@ make %{?_smp_mflags}
 %if 0%{?docs}
 make %{?_smp_mflags} docs
 %endif
-popd
 
 
 %install
-make install INSTALL_ROOT=%{buildroot} -C %{_target_platform}
-
+make install INSTALL_ROOT=%{buildroot}
 %if 0%{?docs}
-make install_docs INSTALL_ROOT=%{buildroot} -C %{_target_platform}
+make install_docs INSTALL_ROOT=%{buildroot}
 %endif
 
 ## .prl/.la file love
 # nuke .prl reference(s) to %%buildroot, excessive (.la-like) libs
 pushd %{buildroot}%{_qt5_libdir}
-for prl_file in libQt5*.prl ; do
+for prl_file in *.prl ; do
   sed -i -e "/^QMAKE_PRL_BUILD_DIR/d" ${prl_file}
   if [ -f "$(basename ${prl_file} .prl).so" ]; then
     rm -fv "$(basename ${prl_file} .prl).la"
@@ -131,7 +127,7 @@ popd
 %postun -p /sbin/ldconfig
 
 %files
-%license LGPL_EXCEPTION.txt LICENSE.LGPL*
+%license LICENSE.*
 %{_qt5_libdir}/libQt5Multimedia.so.5*
 %{_qt5_libdir}/libQt5MultimediaQuick_p.so.5*
 %{_qt5_libdir}/libQt5MultimediaWidgets.so.5*
@@ -174,11 +170,20 @@ popd
 
 %if 0%{?_qt5_examplesdir:1}
 %files examples
+%license LICENSE.FDL
 %{_qt5_examplesdir}/
 %endif
 
 
 %changelog
+* Fri Oct 06 2017 Jan Grulich <jgrulich@redhat.com> - 5.9.2-1
+- Update 5.9.2
+  Resolves: bz#1482784
+
+* Mon Aug 28 2017 Jan Grulich <jgrulich@redhat.com> - 5.9.1-1
+- Update 5.9.1
+  Resolves: bz#1482784
+
 * Wed Jan 11 2017 Jan Grulich <jgrulich@redhat.com> - 5.6.2-1
 - Update to 5.6.2
   Resolves: bz#1384823

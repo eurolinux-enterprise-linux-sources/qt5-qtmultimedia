@@ -56,7 +56,7 @@ class VideoSettings : public QDialog
     Q_OBJECT
 
 public:
-    VideoSettings(QMediaRecorder *mediaRecorder, QWidget *parent = 0);
+    explicit VideoSettings(QMediaRecorder *mediaRecorder, QWidget *parent = nullptr);
     ~VideoSettings();
 
     QAudioEncoderSettings audioSettings() const;
@@ -69,7 +69,7 @@ public:
     void setFormat(const QString &format);
 
 protected:
-    void changeEvent(QEvent *e);
+    void changeEvent(QEvent *e) override;
 
 private:
     QVariant boxValue(const QComboBox*) const;

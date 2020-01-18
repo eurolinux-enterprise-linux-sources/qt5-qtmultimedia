@@ -1,9 +1,5 @@
 INCLUDEPATH += $$PWD
 
-DEFINES += QMEDIA_DIRECTSHOW_CAMERA
-
-mingw: DEFINES += QT_NO_WMSDK
-
 win32: DEFINES += _CRT_SECURE_NO_WARNINGS
 
 HEADERS += \
@@ -13,7 +9,7 @@ HEADERS += \
     $$PWD/dsvideodevicecontrol.h \
     $$PWD/dsimagecapturecontrol.h \
     $$PWD/dscamerasession.h \
-    $$PWD/directshowglobal.h \
+    $$PWD/directshowcameraglobal.h \
     $$PWD/dscameraviewfindersettingscontrol.h \
     $$PWD/dscameraimageprocessingcontrol.h
 
@@ -28,4 +24,4 @@ SOURCES += \
     $$PWD/dscameraimageprocessingcontrol.cpp
 
 *-msvc*:INCLUDEPATH += $$(DXSDK_DIR)/include
-LIBS += -lstrmiids -ldmoguids -luuid -lmsdmo -lole32 -loleaut32
+QMAKE_USE += directshow

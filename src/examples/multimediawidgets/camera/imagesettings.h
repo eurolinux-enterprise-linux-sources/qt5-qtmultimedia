@@ -56,7 +56,7 @@ class ImageSettings : public QDialog
     Q_OBJECT
 
 public:
-    ImageSettings(QCameraImageCapture *imageCapture, QWidget *parent = 0);
+    explicit ImageSettings(QCameraImageCapture *imageCapture, QWidget *parent = nullptr);
     ~ImageSettings();
 
     QAudioEncoderSettings audioSettings() const;
@@ -69,7 +69,7 @@ public:
     void setFormat(const QString &format);
 
 protected:
-    void changeEvent(QEvent *e);
+    void changeEvent(QEvent *e) override;
 
 private:
     QVariant boxValue(const QComboBox *box) const;

@@ -1,31 +1,37 @@
 /****************************************************************************
 **
-** Copyright (C) 2015 The Qt Company Ltd.
-** Contact: http://www.qt.io/licensing/
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Toolkit.
 **
-** $QT_BEGIN_LICENSE:LGPL21$
+** $QT_BEGIN_LICENSE:LGPL$
 ** Commercial License Usage
 ** Licensees holding valid commercial Qt licenses may use this file in
 ** accordance with the commercial license agreement provided with the
 ** Software or, alternatively, in accordance with the terms contained in
 ** a written agreement between you and The Qt Company. For licensing terms
-** and conditions see http://www.qt.io/terms-conditions. For further
-** information use the contact form at http://www.qt.io/contact-us.
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
 **
 ** GNU Lesser General Public License Usage
 ** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 or version 3 as published by the Free
-** Software Foundation and appearing in the file LICENSE.LGPLv21 and
-** LICENSE.LGPLv3 included in the packaging of this file. Please review the
-** following information to ensure the GNU Lesser General Public License
-** requirements will be met: https://www.gnu.org/licenses/lgpl.html and
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** General Public License version 3 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL3 included in the
+** packaging of this file. Please review the following information to
+** ensure the GNU Lesser General Public License version 3 requirements
+** will be met: https://www.gnu.org/licenses/lgpl-3.0.html.
 **
-** As a special exception, The Qt Company gives you certain additional
-** rights. These rights are described in The Qt Company LGPL Exception
-** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 2.0 or (at your option) the GNU General
+** Public license version 3 or any later version approved by the KDE Free
+** Qt Foundation. The licenses are as published by the Free Software
+** Foundation and appearing in the file LICENSE.GPL2 and LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-2.0.html and
+** https://www.gnu.org/licenses/gpl-3.0.html.
 **
 ** $QT_END_LICENSE$
 **
@@ -370,8 +376,8 @@ void QWindowsAudioDeviceInfo::updateLists()
 
         // Check more sample sizes
         testFormat = defaultTestFormat;
-        QList<int> testSampleSizes = QList<int>() << 24 << 32 << 48 << 64;
-        Q_FOREACH (int s, testSampleSizes) {
+        const QList<int> testSampleSizes = QList<int>() << 24 << 32 << 48 << 64;
+        for (int s : testSampleSizes) {
             testFormat.setSampleSize(s);
             if (testSettings(testFormat))
                 sizez.append(s);
@@ -379,8 +385,8 @@ void QWindowsAudioDeviceInfo::updateLists()
 
         // Check more sample rates
         testFormat = defaultTestFormat;
-        QList<int> testSampleRates = QList<int>() << 8000 << 16000 << 32000 << 88200 << 192000;
-        Q_FOREACH (int r, testSampleRates) {
+        const QList<int> testSampleRates = QList<int>() << 8000 << 16000 << 32000 << 88200 << 192000;
+        for (int r : testSampleRates) {
             testFormat.setSampleRate(r);
             if (testSettings(testFormat))
                 sampleRatez.append(r);
@@ -394,7 +400,6 @@ QList<QByteArray> QWindowsAudioDeviceInfo::availableDevices(QAudio::Mode mode)
     Q_UNUSED(mode)
 
     QList<QByteArray> devices;
-#ifndef Q_OS_WINCE
     //enumerate device fullnames through directshow api
     CoInitialize(NULL);
     ICreateDevEnum *pDevEnum = NULL;
@@ -448,55 +453,18 @@ QList<QByteArray> QWindowsAudioDeviceInfo::availableDevices(QAudio::Mode mode)
         pDevEnum->Release();
     }
     CoUninitialize();
-#else // Q_OS_WINCE
-    if (mode == QAudio::AudioOutput) {
-        WAVEOUTCAPS woc;
-        unsigned long iNumDevs,i;
-        iNumDevs = waveOutGetNumDevs();
-        for (i=0;i<iNumDevs;i++) {
-            if (waveOutGetDevCaps(i, &woc, sizeof(WAVEOUTCAPS))
-                == MMSYSERR_NOERROR) {
-                QByteArray  device;
-                QDataStream ds(&device, QIODevice::WriteOnly);
-                ds << quint32(i) << QString::fromWCharArray(woc.szPname);
-                devices.append(device);
-            }
-        }
-    } else {
-        WAVEINCAPS woc;
-        unsigned long iNumDevs,i;
-        iNumDevs = waveInGetNumDevs();
-        for (i=0;i<iNumDevs;i++) {
-            if (waveInGetDevCaps(i, &woc, sizeof(WAVEINCAPS))
-                == MMSYSERR_NOERROR) {
-                QByteArray  device;
-                QDataStream ds(&device, QIODevice::WriteOnly);
-                ds << quint32(i) << QString::fromWCharArray(woc.szPname);
-                devices.append(device);
-            }
-        }
-    }
-#endif // !Q_OS_WINCE
 
     return devices;
 }
 
-QByteArray QWindowsAudioDeviceInfo::defaultOutputDevice()
+QByteArray QWindowsAudioDeviceInfo::defaultDevice(QAudio::Mode mode)
 {
+    const QString &name = (mode == QAudio::AudioOutput) ? QStringLiteral("Default Output Device")
+                                                        : QStringLiteral("Default Input Device");
     QByteArray defaultDevice;
     QDataStream ds(&defaultDevice, QIODevice::WriteOnly);
     ds << quint32(WAVE_MAPPER) // device ID for default device
-       << QStringLiteral("Default Output Device");
-
-    return defaultDevice;
-}
-
-QByteArray QWindowsAudioDeviceInfo::defaultInputDevice()
-{
-    QByteArray defaultDevice;
-    QDataStream ds(&defaultDevice, QIODevice::WriteOnly);
-    ds << quint32(WAVE_MAPPER) // device ID for default device
-       << QStringLiteral("Default Input Device");
+       << name;
 
     return defaultDevice;
 }

@@ -10,4 +10,8 @@ SOURCES += \
     tst_qmediaplayerbackend.cpp
 
 TESTDATA += testdata/*
-DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0
+
+boot2qt: {
+    # OGV testing is unstable with qemu
+    QMAKE_CXXFLAGS += -DSKIP_OGV_TEST
+}

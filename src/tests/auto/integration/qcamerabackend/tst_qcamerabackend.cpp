@@ -1,31 +1,26 @@
 /****************************************************************************
 **
-** Copyright (C) 2015 The Qt Company Ltd.
-** Contact: http://www.qt.io/licensing/
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Toolkit.
 **
-** $QT_BEGIN_LICENSE:LGPL21$
+** $QT_BEGIN_LICENSE:GPL-EXCEPT$
 ** Commercial License Usage
 ** Licensees holding valid commercial Qt licenses may use this file in
 ** accordance with the commercial license agreement provided with the
 ** Software or, alternatively, in accordance with the terms contained in
 ** a written agreement between you and The Qt Company. For licensing terms
-** and conditions see http://www.qt.io/terms-conditions. For further
-** information use the contact form at http://www.qt.io/contact-us.
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
 **
-** GNU Lesser General Public License Usage
-** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 or version 3 as published by the Free
-** Software Foundation and appearing in the file LICENSE.LGPLv21 and
-** LICENSE.LGPLv3 included in the packaging of this file. Please review the
-** following information to ensure the GNU Lesser General Public License
-** requirements will be met: https://www.gnu.org/licenses/lgpl.html and
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
-**
-** As a special exception, The Qt Company gives you certain additional
-** rights. These rights are described in The Qt Company LGPL Exception
-** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 3 as published by the Free Software
+** Foundation with exceptions as appearing in the file LICENSE.GPL3-EXCEPT
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-3.0.html.
 **
 ** $QT_END_LICENSE$
 **
@@ -234,11 +229,6 @@ void tst_QCameraBackend::testCameraStates()
     QTRY_COMPARE(camera.status(), QCamera::UnloadedStatus);
     QCOMPARE(statusChangedSignal.last().first().value<QCamera::Status>(), QCamera::UnloadedStatus);
 
-#ifdef Q_WS_MAEMO_6
-    //resource policy doesn't work correctly when resource is released and immediately requested again.
-    QTest::qWait(250);
-#endif
-
     camera.start();
     QCOMPARE(camera.state(), QCamera::ActiveState);
     QCOMPARE(stateChangedSignal.last().first().value<QCamera::State>(), QCamera::ActiveState);
@@ -391,10 +381,6 @@ void tst_QCameraBackend::testCaptureToBuffer()
 
     camera.load();
 
-#ifdef Q_WS_MAEMO_6
-    QVERIFY(imageCapture.isCaptureDestinationSupported(QCameraImageCapture::CaptureToBuffer));
-#endif
-
     if (!imageCapture.isCaptureDestinationSupported(QCameraImageCapture::CaptureToBuffer))
         QSKIP("Buffer capture not supported");
 
@@ -459,11 +445,6 @@ void tst_QCameraBackend::testCaptureToBuffer()
     imageAvailableSignal.clear();
     savedSignal.clear();
 
-    //Capture to yuv buffer
-#ifdef Q_WS_MAEMO_6
-    QVERIFY(imageCapture.supportedBufferFormats().contains(QVideoFrame::Format_UYVY));
-#endif
-
     if (imageCapture.supportedBufferFormats().contains(QVideoFrame::Format_UYVY)) {
         imageCapture.setBufferFormat(QVideoFrame::Format_UYVY);
         QCOMPARE(imageCapture.bufferFormat(), QVideoFrame::Format_UYVY);
@@ -498,9 +479,6 @@ void tst_QCameraBackend::testCaptureToBuffer()
     QTRY_VERIFY(imageCapture.isReadyForCapture());
 
     //Try to capture to both buffer and file
-#ifdef Q_WS_MAEMO_6
-    QVERIFY(imageCapture.isCaptureDestinationSupported(QCameraImageCapture::CaptureToBuffer | QCameraImageCapture::CaptureToFile));
-#endif
     if (imageCapture.isCaptureDestinationSupported(QCameraImageCapture::CaptureToBuffer | QCameraImageCapture::CaptureToFile)) {
         imageCapture.setCaptureDestination(QCameraImageCapture::CaptureToBuffer | QCameraImageCapture::CaptureToFile);
 
@@ -529,9 +507,7 @@ void tst_QCameraBackend::testCaptureToBuffer()
 
 void tst_QCameraBackend::testCameraCaptureMetadata()
 {
-#ifndef Q_WS_MAEMO_6
     QSKIP("Capture metadata is supported only on harmattan");
-#endif
 
     QCamera camera;
     QCameraImageCapture imageCapture(&camera);
@@ -552,9 +528,7 @@ void tst_QCameraBackend::testCameraCaptureMetadata()
 
 void tst_QCameraBackend::testExposureCompensation()
 {
-#if !defined(Q_WS_MAEMO_6)
     QSKIP("Capture exposure parameters are supported only on mobile platforms");
-#endif
 
     QCamera camera;
     QCameraExposure *exposure = camera.exposure();
@@ -599,16 +573,11 @@ void tst_QCameraBackend::testExposureCompensation()
 
 void tst_QCameraBackend::testExposureMode()
 {
-#if !defined(Q_WS_MAEMO_6)
     QSKIP("Capture exposure parameters are supported only on mobile platforms");
-#endif
 
     QCamera camera;
     QCameraExposure *exposure = camera.exposure();
 
-#ifdef Q_WS_MAEMO_6
-    QEXPECT_FAIL("", "Camerabin reports Manual exposure instead of Auto", Continue);
-#endif
     QCOMPARE(exposure->exposureMode(), QCameraExposure::ExposureAuto);
 
     // Night
@@ -620,11 +589,6 @@ void tst_QCameraBackend::testExposureMode()
 
     camera.unload();
     QTRY_COMPARE(camera.status(), QCamera::UnloadedStatus);
-
-#ifdef Q_WS_MAEMO_6
-    //resource policy doesn't work correctly when resource is released and immediately requested again.
-    QTest::qWait(250);
-#endif
 
     // Auto
     exposure->setExposureMode(QCameraExposure::ExposureAuto);

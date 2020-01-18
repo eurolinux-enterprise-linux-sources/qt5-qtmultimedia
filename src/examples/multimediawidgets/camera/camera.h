@@ -56,7 +56,7 @@ class Camera : public QMainWindow
     Q_OBJECT
 
 public:
-    Camera(QWidget *parent = 0);
+    explicit Camera(QWidget *parent = nullptr);
     ~Camera();
 
 private slots:
@@ -100,23 +100,23 @@ private slots:
     void imageSaved(int id, const QString &fileName);
 
 protected:
-    void keyPressEvent(QKeyEvent *event);
-    void keyReleaseEvent(QKeyEvent *event);
-    void closeEvent(QCloseEvent *event);
+    void keyPressEvent(QKeyEvent *event) override;
+    void keyReleaseEvent(QKeyEvent *event) override;
+    void closeEvent(QCloseEvent *event) override;
 
 private:
     Ui::Camera *ui;
 
-    QCamera *camera;
-    QCameraImageCapture *imageCapture;
-    QMediaRecorder* mediaRecorder;
+    QCamera *camera = nullptr;
+    QCameraImageCapture *imageCapture = nullptr;
+    QMediaRecorder* mediaRecorder = nullptr;
 
     QImageEncoderSettings imageSettings;
     QAudioEncoderSettings audioSettings;
     QVideoEncoderSettings videoSettings;
     QString videoContainerFormat;
-    bool isCapturingImage;
-    bool applicationExiting;
+    bool isCapturingImage = false;
+    bool applicationExiting = false;
 };
 
 #endif

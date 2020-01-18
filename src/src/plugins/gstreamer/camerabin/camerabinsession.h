@@ -1,51 +1,58 @@
 /****************************************************************************
 **
-** Copyright (C) 2015 The Qt Company Ltd.
-** Contact: http://www.qt.io/licensing/
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Toolkit.
 **
-** $QT_BEGIN_LICENSE:LGPL21$
+** $QT_BEGIN_LICENSE:LGPL$
 ** Commercial License Usage
 ** Licensees holding valid commercial Qt licenses may use this file in
 ** accordance with the commercial license agreement provided with the
 ** Software or, alternatively, in accordance with the terms contained in
 ** a written agreement between you and The Qt Company. For licensing terms
-** and conditions see http://www.qt.io/terms-conditions. For further
-** information use the contact form at http://www.qt.io/contact-us.
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
 **
 ** GNU Lesser General Public License Usage
 ** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 or version 3 as published by the Free
-** Software Foundation and appearing in the file LICENSE.LGPLv21 and
-** LICENSE.LGPLv3 included in the packaging of this file. Please review the
-** following information to ensure the GNU Lesser General Public License
-** requirements will be met: https://www.gnu.org/licenses/lgpl.html and
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** General Public License version 3 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL3 included in the
+** packaging of this file. Please review the following information to
+** ensure the GNU Lesser General Public License version 3 requirements
+** will be met: https://www.gnu.org/licenses/lgpl-3.0.html.
 **
-** As a special exception, The Qt Company gives you certain additional
-** rights. These rights are described in The Qt Company LGPL Exception
-** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 2.0 or (at your option) the GNU General
+** Public license version 3 or any later version approved by the KDE Free
+** Qt Foundation. The licenses are as published by the Free Software
+** Foundation and appearing in the file LICENSE.GPL2 and LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-2.0.html and
+** https://www.gnu.org/licenses/gpl-3.0.html.
 **
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
 
-#ifndef CAMERABINCAPTURESESSION_MAEMO_H
-#define CAMERABINCAPTURESESSION_MAEMO_H
+#ifndef CAMERABINCAPTURESESSION_H
+#define CAMERABINCAPTURESESSION_H
 
+#include <QtMultimedia/private/qtmultimediaglobal_p.h>
 #include <qmediarecordercontrol.h>
 
 #include <QtCore/qurl.h>
 #include <QtCore/qdir.h>
 
 #include <gst/gst.h>
-#ifdef HAVE_GST_PHOTOGRAPHY
+#if QT_CONFIG(gstreamer_photography)
 #include <gst/interfaces/photography.h>
 #endif
 
 #include <private/qgstreamerbushelper_p.h>
-#include <private/qgstreamerbufferprobe_p.h>
+#include <private/qgstreamervideoprobecontrol_p.h>
 #include <private/qmediastoragelocation_p.h>
 #include "qcamera.h"
 
@@ -87,7 +94,7 @@ public:
     CameraBinSession(GstElementFactory *sourceFactory, QObject *parent);
     ~CameraBinSession();
 
-#ifdef HAVE_GST_PHOTOGRAPHY
+#if QT_CONFIG(gstreamer_photography)
     GstPhotography *photography();
 #endif
     GstElement *cameraBin() { return m_camerabin; }
@@ -111,7 +118,7 @@ public:
     CameraBinVideoEncoder *videoEncodeControl() const { return m_videoEncodeControl; }
     CameraBinImageEncoder *imageEncodeControl() const { return m_imageEncodeControl; }
 
-#ifdef HAVE_GST_PHOTOGRAPHY
+#if QT_CONFIG(gstreamer_photography)
     CameraBinExposure *cameraExposureControl();
     CameraBinFlash *cameraFlashControl();
     CameraBinFocus *cameraFocusControl();
@@ -155,8 +162,10 @@ public:
 
     QString device() const { return m_inputDevice; }
 
-    bool processSyncMessage(const QGstreamerMessage &message);
-    bool processBusMessage(const QGstreamerMessage &message);
+    bool processSyncMessage(const QGstreamerMessage &message) override;
+    bool processBusMessage(const QGstreamerMessage &message) override;
+
+    QGstreamerVideoProbeControl *videoProbe();
 
 signals:
     void statusChanged(QCamera::Status status);
@@ -230,7 +239,7 @@ private:
     CameraBinImageEncoder *m_imageEncodeControl;
     CameraBinRecorder *m_recorderControl;
     CameraBinContainer *m_mediaContainerControl;
-#ifdef HAVE_GST_PHOTOGRAPHY
+#if QT_CONFIG(gstreamer_photography)
     CameraBinExposure *m_cameraExposureControl;
     CameraBinFlash *m_cameraFlashControl;
     CameraBinFocus *m_cameraFocusControl;
@@ -252,14 +261,14 @@ private:
     bool m_inputDeviceHasChanged;
     bool m_usingWrapperCameraBinSrc;
 
-    class ViewfinderProbe : public QGstreamerBufferProbe {
+    class ViewfinderProbe : public QGstreamerVideoProbeControl {
     public:
         ViewfinderProbe(CameraBinSession *s)
-            : QGstreamerBufferProbe(QGstreamerBufferProbe::ProbeCaps)
+            : QGstreamerVideoProbeControl(s)
             , session(s)
         {}
 
-        void probeCaps(GstCaps *caps);
+        void probeCaps(GstCaps *caps) override;
 
     private:
         CameraBinSession * const session;
@@ -280,4 +289,4 @@ public:
 
 QT_END_NAMESPACE
 
-#endif // CAMERABINCAPTURESESSION_MAEMO_H
+#endif // CAMERABINCAPTURESESSION_H

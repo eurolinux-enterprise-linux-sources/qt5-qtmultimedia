@@ -1,31 +1,37 @@
 /****************************************************************************
 **
-** Copyright (C) 2015 The Qt Company Ltd.
-** Contact: http://www.qt.io/licensing/
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Toolkit.
 **
-** $QT_BEGIN_LICENSE:LGPL21$
+** $QT_BEGIN_LICENSE:LGPL$
 ** Commercial License Usage
 ** Licensees holding valid commercial Qt licenses may use this file in
 ** accordance with the commercial license agreement provided with the
 ** Software or, alternatively, in accordance with the terms contained in
 ** a written agreement between you and The Qt Company. For licensing terms
-** and conditions see http://www.qt.io/terms-conditions. For further
-** information use the contact form at http://www.qt.io/contact-us.
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
 **
 ** GNU Lesser General Public License Usage
 ** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 or version 3 as published by the Free
-** Software Foundation and appearing in the file LICENSE.LGPLv21 and
-** LICENSE.LGPLv3 included in the packaging of this file. Please review the
-** following information to ensure the GNU Lesser General Public License
-** requirements will be met: https://www.gnu.org/licenses/lgpl.html and
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** General Public License version 3 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL3 included in the
+** packaging of this file. Please review the following information to
+** ensure the GNU Lesser General Public License version 3 requirements
+** will be met: https://www.gnu.org/licenses/lgpl-3.0.html.
 **
-** As a special exception, The Qt Company gives you certain additional
-** rights. These rights are described in The Qt Company LGPL Exception
-** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 2.0 or (at your option) the GNU General
+** Public license version 3 or any later version approved by the KDE Free
+** Qt Foundation. The licenses are as published by the Free Software
+** Foundation and appearing in the file LICENSE.GPL2 and LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-2.0.html and
+** https://www.gnu.org/licenses/gpl-3.0.html.
 **
 ** $QT_END_LICENSE$
 **
@@ -170,15 +176,30 @@ static void event_cb(pa_context* context, pa_subscription_event_type_t t, uint32
     case PA_SUBSCRIPTION_EVENT_NEW:
     case PA_SUBSCRIPTION_EVENT_CHANGE:
         switch (facility) {
-        case PA_SUBSCRIPTION_EVENT_SERVER:
-            pa_operation_unref(pa_context_get_server_info(context, serverInfoCallback, userdata));
+        case PA_SUBSCRIPTION_EVENT_SERVER: {
+            pa_operation *op = pa_context_get_server_info(context, serverInfoCallback, userdata);
+            if (op)
+                pa_operation_unref(op);
+            else
+                qWarning("PulseAudioService: failed to get server info");
             break;
-        case PA_SUBSCRIPTION_EVENT_SINK:
-            pa_operation_unref(pa_context_get_sink_info_by_index(context, index, sinkInfoCallback, userdata));
+        }
+        case PA_SUBSCRIPTION_EVENT_SINK: {
+            pa_operation *op = pa_context_get_sink_info_by_index(context, index, sinkInfoCallback, userdata);
+            if (op)
+                pa_operation_unref(op);
+            else
+                qWarning("PulseAudioService: failed to get sink info");
             break;
-        case PA_SUBSCRIPTION_EVENT_SOURCE:
-            pa_operation_unref(pa_context_get_source_info_by_index(context, index, sourceInfoCallback, userdata));
+        }
+        case PA_SUBSCRIPTION_EVENT_SOURCE: {
+            pa_operation *op = pa_context_get_source_info_by_index(context, index, sourceInfoCallback, userdata);
+            if (op)
+                pa_operation_unref(op);
+            else
+                qWarning("PulseAudioService: failed to get source info");
             break;
+        }
         default:
             break;
         }
@@ -328,11 +349,15 @@ void QPulseAudioEngine::prepare()
         pa_context_set_state_callback(m_context, contextStateCallback, this);
 
         pa_context_set_subscribe_callback(m_context, event_cb, this);
-        pa_operation_unref(pa_context_subscribe(m_context,
+        pa_operation *op = pa_context_subscribe(m_context,
                                                 pa_subscription_mask_t(PA_SUBSCRIPTION_MASK_SINK |
                                                                        PA_SUBSCRIPTION_MASK_SOURCE |
                                                                        PA_SUBSCRIPTION_MASK_SERVER),
-                                                NULL, NULL));
+                                                NULL, NULL);
+        if (op)
+            pa_operation_unref(op);
+        else
+            qWarning("PulseAudioService: failed to subscribe to context notifications");
     } else {
         pa_context_unref(m_context);
         m_context = 0;
@@ -376,21 +401,33 @@ void QPulseAudioEngine::updateDevices()
 
     // Get default input and output devices
     pa_operation *operation = pa_context_get_server_info(m_context, serverInfoCallback, this);
-    while (pa_operation_get_state(operation) == PA_OPERATION_RUNNING)
-        pa_threaded_mainloop_wait(m_mainLoop);
-    pa_operation_unref(operation);
+    if (operation) {
+        while (pa_operation_get_state(operation) == PA_OPERATION_RUNNING)
+            pa_threaded_mainloop_wait(m_mainLoop);
+        pa_operation_unref(operation);
+    } else {
+        qWarning("PulseAudioService: failed to get server info");
+    }
 
     // Get output devices
     operation = pa_context_get_sink_info_list(m_context, sinkInfoCallback, this);
-    while (pa_operation_get_state(operation) == PA_OPERATION_RUNNING)
-        pa_threaded_mainloop_wait(m_mainLoop);
-    pa_operation_unref(operation);
+    if (operation) {
+        while (pa_operation_get_state(operation) == PA_OPERATION_RUNNING)
+            pa_threaded_mainloop_wait(m_mainLoop);
+        pa_operation_unref(operation);
+    } else {
+        qWarning("PulseAudioService: failed to get sink info");
+    }
 
     // Get input devices
     operation = pa_context_get_source_info_list(m_context, sourceInfoCallback, this);
-    while (pa_operation_get_state(operation) == PA_OPERATION_RUNNING)
-        pa_threaded_mainloop_wait(m_mainLoop);
-    pa_operation_unref(operation);
+    if (operation) {
+        while (pa_operation_get_state(operation) == PA_OPERATION_RUNNING)
+            pa_threaded_mainloop_wait(m_mainLoop);
+        pa_operation_unref(operation);
+    } else {
+        qWarning("PulseAudioService: failed to get source info");
+    }
 
     unlock();
 }
@@ -435,6 +472,11 @@ QList<QByteArray> QPulseAudioEngine::availableDevices(QAudio::Mode mode) const
     devices.prepend(defaultDevice);
 
     return devices;
+}
+
+QByteArray QPulseAudioEngine::defaultDevice(QAudio::Mode mode) const
+{
+    return (mode == QAudio::AudioOutput) ? m_defaultSink : m_defaultSource;
 }
 
 QT_END_NAMESPACE

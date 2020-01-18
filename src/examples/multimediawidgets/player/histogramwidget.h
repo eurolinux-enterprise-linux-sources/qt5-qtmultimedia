@@ -43,7 +43,10 @@
 
 #include <QThread>
 #include <QVideoFrame>
+#include <QAudioBuffer>
 #include <QWidget>
+
+class QAudioLevel;
 
 class FrameProcessor: public QObject
 {
@@ -67,10 +70,11 @@ public:
 
 public slots:
     void processFrame(QVideoFrame frame);
+    void processBuffer(QAudioBuffer buffer);
     void setHistogram(QVector<qreal> histogram);
 
 protected:
-    void paintEvent(QPaintEvent *event);
+    void paintEvent(QPaintEvent *event) override;
 
 private:
     QVector<qreal> m_histogram;
@@ -78,6 +82,7 @@ private:
     FrameProcessor m_processor;
     QThread m_processorThread;
     bool m_isBusy;
+    QVector<QAudioLevel *> audioLevels;
 };
 
 #endif // HISTOGRAMWIDGET_H

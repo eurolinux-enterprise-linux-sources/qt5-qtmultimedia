@@ -1,36 +1,43 @@
 /****************************************************************************
 **
-** Copyright (C) 2015 The Qt Company Ltd.
-** Contact: http://www.qt.io/licensing/
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Toolkit.
 **
-** $QT_BEGIN_LICENSE:LGPL21$
+** $QT_BEGIN_LICENSE:LGPL$
 ** Commercial License Usage
 ** Licensees holding valid commercial Qt licenses may use this file in
 ** accordance with the commercial license agreement provided with the
 ** Software or, alternatively, in accordance with the terms contained in
 ** a written agreement between you and The Qt Company. For licensing terms
-** and conditions see http://www.qt.io/terms-conditions. For further
-** information use the contact form at http://www.qt.io/contact-us.
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
 **
 ** GNU Lesser General Public License Usage
 ** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 or version 3 as published by the Free
-** Software Foundation and appearing in the file LICENSE.LGPLv21 and
-** LICENSE.LGPLv3 included in the packaging of this file. Please review the
-** following information to ensure the GNU Lesser General Public License
-** requirements will be met: https://www.gnu.org/licenses/lgpl.html and
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** General Public License version 3 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL3 included in the
+** packaging of this file. Please review the following information to
+** ensure the GNU Lesser General Public License version 3 requirements
+** will be met: https://www.gnu.org/licenses/lgpl-3.0.html.
 **
-** As a special exception, The Qt Company gives you certain additional
-** rights. These rights are described in The Qt Company LGPL Exception
-** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 2.0 or (at your option) the GNU General
+** Public license version 3 or any later version approved by the KDE Free
+** Qt Foundation. The licenses are as published by the Free Software
+** Foundation and appearing in the file LICENSE.GPL2 and LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-2.0.html and
+** https://www.gnu.org/licenses/gpl-3.0.html.
 **
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
 
+#include <QtMultimedia/private/qtmultimediaglobal_p.h>
 #include "qgstutils_p.h"
 
 #include <QtCore/qdatetime.h>
@@ -51,7 +58,7 @@
 
 template<typename T, int N> static int lengthOf(const T (&)[N]) { return N; }
 
-#ifdef USE_V4L
+#if QT_CONFIG(linux_v4l)
 #  include <private/qcore_unix_p.h>
 #  include <linux/videodev2.h>
 #endif
@@ -117,6 +124,42 @@ static void addTagToMap(const GstTagList *list,
                     if (!map->contains("year"))
                         map->insert("year", year);
                 }
+#if GST_CHECK_VERSION(1,0,0)
+            } else if (G_VALUE_TYPE(&val) == GST_TYPE_DATE_TIME) {
+                const GstDateTime *dateTime = (const GstDateTime *)g_value_get_boxed(&val);
+                int year = gst_date_time_has_year(dateTime) ? gst_date_time_get_year(dateTime) : 0;
+                int month = gst_date_time_has_month(dateTime) ? gst_date_time_get_month(dateTime) : 0;
+                int day = gst_date_time_has_day(dateTime) ? gst_date_time_get_day(dateTime) : 0;
+                if (gst_date_time_has_time(dateTime)) {
+                    int hour = gst_date_time_get_hour(dateTime);
+                    int minute = gst_date_time_get_minute(dateTime);
+                    int second = gst_date_time_get_second(dateTime);
+                    float tz = gst_date_time_get_time_zone_offset(dateTime);
+                    QDateTime dateTime(QDate(year, month, day), QTime(hour, minute, second),
+                                       Qt::OffsetFromUTC, tz * 60 * 60);
+                    map->insert(QByteArray(tag), dateTime);
+                } else if (year > 0 && month > 0 && day > 0) {
+                    map->insert(QByteArray(tag), QDate(year,month,day));
+                }
+                if (!map->contains("year") && year > 0)
+                    map->insert("year", year);
+            } else if (G_VALUE_TYPE(&val) == GST_TYPE_SAMPLE) {
+                GstSample *sample = (GstSample *)g_value_get_boxed(&val);
+                GstCaps* caps = gst_sample_get_caps(sample);
+                if (caps && !gst_caps_is_empty(caps)) {
+                    GstStructure *structure = gst_caps_get_structure(caps, 0);
+                    const gchar *name = gst_structure_get_name(structure);
+                    if (QByteArray(name).startsWith("image/")) {
+                        GstBuffer *buffer = gst_sample_get_buffer(sample);
+                        if (buffer) {
+                            GstMapInfo info;
+                            gst_buffer_map(buffer, &info, GST_MAP_READ);
+                            map->insert(QByteArray(tag), QImage::fromData(info.data, info.size, name));
+                            gst_buffer_unmap(buffer, &info);
+                        }
+                    }
+                }
+#endif
             } else if (G_VALUE_TYPE(&val) == GST_TYPE_FRACTION) {
                 int nom = gst_value_get_fraction_numerator(&val);
                 int denom = gst_value_get_fraction_denominator(&val);
@@ -480,7 +523,7 @@ QMultimedia::SupportEstimate QGstUtils::hasSupport(const QString &mimeType,
     }
 
     int supportedCodecCount = 0;
-    foreach (const QString &codec, codecs) {
+    for (const QString &codec : codecs) {
         QString codecLowcase = codec.toLower();
         const char* codecAlias = getCodecAlias(codecLowcase);
         if (codecAlias) {
@@ -579,14 +622,14 @@ QVector<QGstUtils::CameraInfo> QGstUtils::enumerateCameras(GstElementFactory *fa
         }
     }
 
-#ifdef USE_V4L
+#if QT_CONFIG(linux_v4l)
     QDir devDir(QStringLiteral("/dev"));
     devDir.setFilter(QDir::System);
 
-    QFileInfoList entries = devDir.entryInfoList(QStringList()
+    const QFileInfoList entries = devDir.entryInfoList(QStringList()
                 << QStringLiteral("video*"));
 
-    foreach (const QFileInfo &entryInfo, entries) {
+    for (const QFileInfo &entryInfo : entries) {
         //qDebug() << "Try" << entryInfo.filePath();
 
         int fd = qt_safe_open(entryInfo.filePath().toLatin1().constData(), O_RDWR );
@@ -634,7 +677,7 @@ QVector<QGstUtils::CameraInfo> QGstUtils::enumerateCameras(GstElementFactory *fa
         qt_safe_close(fd);
     }
     camerasCacheAgeTimer.restart();
-#endif // USE_V4L
+#endif // linux_v4l
 
     return devices;
 }
@@ -643,7 +686,9 @@ QList<QByteArray> QGstUtils::cameraDevices(GstElementFactory * factory)
 {
     QList<QByteArray> devices;
 
-    foreach (const CameraInfo &camera, enumerateCameras(factory))
+    const auto cameras = enumerateCameras(factory);
+    devices.reserve(cameras.size());
+    for (const CameraInfo &camera : cameras)
         devices.append(camera.name.toUtf8());
 
     return devices;
@@ -651,7 +696,8 @@ QList<QByteArray> QGstUtils::cameraDevices(GstElementFactory * factory)
 
 QString QGstUtils::cameraDescription(const QString &device, GstElementFactory * factory)
 {
-    foreach (const CameraInfo &camera, enumerateCameras(factory)) {
+    const auto cameras = enumerateCameras(factory);
+    for (const CameraInfo &camera : cameras) {
         if (camera.name == device)
             return camera.description;
     }
@@ -660,7 +706,8 @@ QString QGstUtils::cameraDescription(const QString &device, GstElementFactory * 
 
 QCamera::Position QGstUtils::cameraPosition(const QString &device, GstElementFactory * factory)
 {
-    foreach (const CameraInfo &camera, enumerateCameras(factory)) {
+    const auto cameras = enumerateCameras(factory);
+    for (const CameraInfo &camera : cameras) {
         if (camera.name == device)
             return camera.position;
     }
@@ -669,7 +716,8 @@ QCamera::Position QGstUtils::cameraPosition(const QString &device, GstElementFac
 
 int QGstUtils::cameraOrientation(const QString &device, GstElementFactory * factory)
 {
-    foreach (const CameraInfo &camera, enumerateCameras(factory)) {
+    const auto cameras = enumerateCameras(factory);
+    for (const CameraInfo &camera : cameras) {
         if (camera.name == device)
             return camera.orientation;
     }
@@ -678,7 +726,8 @@ int QGstUtils::cameraOrientation(const QString &device, GstElementFactory * fact
 
 QByteArray QGstUtils::cameraDriver(const QString &device, GstElementFactory *factory)
 {
-    foreach (const CameraInfo &camera, enumerateCameras(factory)) {
+    const auto cameras = enumerateCameras(factory);
+    for (const CameraInfo &camera : cameras) {
         if (camera.name == device)
             return camera.driver;
     }
@@ -749,8 +798,8 @@ QSet<QString> QGstUtils::supportedMimeTypes(bool (*isValidFactory)(GstElementFac
                             if (value) {
                                 gchar *str = gst_value_serialize(value);
                                 QString versions(str);
-                                QStringList elements = versions.split(QRegExp("\\D+"), QString::SkipEmptyParts);
-                                foreach (const QString &e, elements)
+                                const QStringList elements = versions.split(QRegExp("\\D+"), QString::SkipEmptyParts);
+                                for (const QString &e : elements)
                                     supportedMimeTypes.insert(nameLowcase + e);
                                 g_free(str);
                             }
@@ -768,7 +817,7 @@ QSet<QString> QGstUtils::supportedMimeTypes(bool (*isValidFactory)(GstElementFac
     QStringList list = supportedMimeTypes.toList();
     list.sort();
     if (qgetenv("QT_DEBUG_PLUGINS").toInt() > 0) {
-        foreach (const QString &type, list)
+        for (const QString &type : qAsConst(list))
             qDebug() << type;
     }
 #endif
@@ -1110,7 +1159,7 @@ GstCaps *QGstUtils::capsForFormats(const QList<QVideoFrame::PixelFormat> &format
     GstCaps *caps = gst_caps_new_empty();
 
 #if GST_CHECK_VERSION(1,0,0)
-    foreach (QVideoFrame::PixelFormat format, formats) {
+    for (QVideoFrame::PixelFormat format : formats) {
         int index = indexOfVideoFormat(format);
 
         if (index != -1) {
@@ -1121,7 +1170,7 @@ GstCaps *QGstUtils::capsForFormats(const QList<QVideoFrame::PixelFormat> &format
         }
     }
 #else
-    foreach (QVideoFrame::PixelFormat format, formats) {
+    for (QVideoFrame::PixelFormat format : formats) {
         int index = indexOfYuvColor(format);
 
         if (index != -1) {
@@ -1380,6 +1429,40 @@ QPair<qreal, qreal> QGstUtils::structureFrameRateRange(const GstStructure *s)
     }
 
     return rate;
+}
+
+typedef QMap<QString, QString> FileExtensionMap;
+Q_GLOBAL_STATIC(FileExtensionMap, fileExtensionMap)
+
+QString QGstUtils::fileExtensionForMimeType(const QString &mimeType)
+{
+    if (fileExtensionMap->isEmpty()) {
+        //extension for containers hard to guess from mimetype
+        fileExtensionMap->insert("video/x-matroska", "mkv");
+        fileExtensionMap->insert("video/quicktime", "mov");
+        fileExtensionMap->insert("video/x-msvideo", "avi");
+        fileExtensionMap->insert("video/msvideo", "avi");
+        fileExtensionMap->insert("audio/mpeg", "mp3");
+        fileExtensionMap->insert("application/x-shockwave-flash", "swf");
+        fileExtensionMap->insert("application/x-pn-realmedia", "rm");
+    }
+
+    //for container names like avi instead of video/x-msvideo, use it as extension
+    if (!mimeType.contains('/'))
+        return mimeType;
+
+    QString format = mimeType.left(mimeType.indexOf(','));
+    QString extension = fileExtensionMap->value(format);
+
+    if (!extension.isEmpty() || format.isEmpty())
+        return extension;
+
+    QRegExp rx("[-/]([\\w]+)$");
+
+    if (rx.indexIn(format) != -1)
+        extension = rx.cap(1);
+
+    return extension;
 }
 
 void qt_gst_object_ref_sink(gpointer object)

@@ -1,19 +1,18 @@
 TARGET = dsengine
-win32:!qtHaveModule(opengl)|contains(QT_CONFIG,dynamicgl) {
+QT += multimedia-private
+
+win32:!qtHaveModule(opengl)|qtConfig(dynamicgl) {
     LIBS_PRIVATE += -lgdi32 -luser32
 }
-
-QT += multimedia-private
 
 HEADERS += dsserviceplugin.h
 SOURCES += dsserviceplugin.cpp
 
-!config_wmsdk: DEFINES += QT_NO_WMSDK
-
 mingw: DEFINES += NO_DSHOW_STRSAFE
 
-!config_wmf: include(player/player.pri)
-!wince: include(camera/camera.pri)
+include(common/common.pri)
+qtConfig(directshow-player): include(player/player.pri)
+include(camera/camera.pri)
 
 OTHER_FILES += \
     directshow.json \

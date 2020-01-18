@@ -1,31 +1,37 @@
 /****************************************************************************
 **
-** Copyright (C) 2015 The Qt Company Ltd.
-** Contact: http://www.qt.io/licensing/
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Toolkit.
 **
-** $QT_BEGIN_LICENSE:LGPL21$
+** $QT_BEGIN_LICENSE:LGPL$
 ** Commercial License Usage
 ** Licensees holding valid commercial Qt licenses may use this file in
 ** accordance with the commercial license agreement provided with the
 ** Software or, alternatively, in accordance with the terms contained in
 ** a written agreement between you and The Qt Company. For licensing terms
-** and conditions see http://www.qt.io/terms-conditions. For further
-** information use the contact form at http://www.qt.io/contact-us.
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
 **
 ** GNU Lesser General Public License Usage
 ** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 or version 3 as published by the Free
-** Software Foundation and appearing in the file LICENSE.LGPLv21 and
-** LICENSE.LGPLv3 included in the packaging of this file. Please review the
-** following information to ensure the GNU Lesser General Public License
-** requirements will be met: https://www.gnu.org/licenses/lgpl.html and
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** General Public License version 3 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL3 included in the
+** packaging of this file. Please review the following information to
+** ensure the GNU Lesser General Public License version 3 requirements
+** will be met: https://www.gnu.org/licenses/lgpl-3.0.html.
 **
-** As a special exception, The Qt Company gives you certain additional
-** rights. These rights are described in The Qt Company LGPL Exception
-** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 2.0 or (at your option) the GNU General
+** Public license version 3 or any later version approved by the KDE Free
+** Qt Foundation. The licenses are as published by the Free Software
+** Foundation and appearing in the file LICENSE.GPL2 and LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-2.0.html and
+** https://www.gnu.org/licenses/gpl-3.0.html.
 **
 ** $QT_END_LICENSE$
 **
@@ -94,7 +100,6 @@ static void qRegisterMediaPlayerMetaTypes()
 
 Q_CONSTRUCTOR_FUNCTION(qRegisterMediaPlayerMetaTypes)
 
-
 #define MAX_NESTED_PLAYLISTS 16
 
 class QMediaPlayerPrivate : public QMediaObjectPrivate
@@ -106,38 +111,39 @@ public:
         : provider(0)
         , control(0)
         , audioRoleControl(0)
+        , playlist(0)
+        , networkAccessControl(0)
         , state(QMediaPlayer::StoppedState)
         , status(QMediaPlayer::UnknownMediaStatus)
         , error(QMediaPlayer::NoError)
         , ignoreNextStatusChange(-1)
-        , playlist(0)
-        , networkAccessControl(0)
-        , hasStreamPlaybackFeature(false)
         , nestedPlaylists(0)
+        , hasStreamPlaybackFeature(false)
     {}
 
     QMediaServiceProvider *provider;
     QMediaPlayerControl* control;
     QAudioRoleControl *audioRoleControl;
-    QMediaPlayer::State state;
-    QMediaPlayer::MediaStatus status;
-    QMediaPlayer::Error error;
     QString errorString;
-    int ignoreNextStatusChange;
 
     QPointer<QObject> videoOutput;
     QMediaPlaylist *playlist;
     QMediaNetworkAccessControl *networkAccessControl;
     QVideoSurfaceOutput surfaceOutput;
-    bool hasStreamPlaybackFeature;
     QMediaContent qrcMedia;
     QScopedPointer<QFile> qrcFile;
 
     QMediaContent rootMedia;
     QMediaContent pendingPlaylist;
-    QMediaPlaylist *parentPlaylist(QMediaPlaylist *pls);
-    bool isInChain(QUrl url);
+    QMediaPlayer::State state;
+    QMediaPlayer::MediaStatus status;
+    QMediaPlayer::Error error;
+    int ignoreNextStatusChange;
     int nestedPlaylists;
+    bool hasStreamPlaybackFeature;
+
+    QMediaPlaylist *parentPlaylist(QMediaPlaylist *pls);
+    bool isInChain(const QUrl &url);
 
     void setMedia(const QMediaContent &media, QIODevice *stream = 0);
 
@@ -169,7 +175,7 @@ QMediaPlaylist *QMediaPlayerPrivate::parentPlaylist(QMediaPlaylist *pls)
     return 0;
 }
 
-bool QMediaPlayerPrivate::isInChain(QUrl url)
+bool QMediaPlayerPrivate::isInChain(const QUrl &url)
 {
     // Check whether a URL is already in the chain of playlists.
     // Also see a comment in parentPlaylist().
@@ -356,6 +362,7 @@ void QMediaPlayerPrivate::setMedia(const QMediaContent &media, QIODevice *stream
         } else if (hasStreamPlaybackFeature) {
             control->setMedia(media, file.data());
         } else {
+#if QT_CONFIG(temporaryfile)
             QTemporaryFile *tempFile = new QTemporaryFile;
 
             // Preserve original file extension, some backends might not load the file if it doesn't
@@ -377,6 +384,9 @@ void QMediaPlayerPrivate::setMedia(const QMediaContent &media, QIODevice *stream
 
             file.reset(tempFile);
             control->setMedia(QMediaContent(QUrl::fromLocalFile(file->fileName())), 0);
+#else
+            qWarning("Qt was built with -no-feature-temporaryfile: playback from resource file is not supported!");
+#endif
         }
     } else {
         qrcMedia = QMediaContent();
@@ -956,8 +966,8 @@ void QMediaPlayer::setPlaybackRate(qreal rate)
     Sets the current \a media source.
 
     If a \a stream is supplied; media data will be read from it instead of resolving the media
-    source.  In this case the media source may still be used to resolve additional information
-    about the media such as mime type.
+    source. In this case the media source may still be used to resolve additional information
+    about the media such as mime type. The \a stream must be open and readable.
 
     Setting the media to a null QMediaContent will cause the player to discard all
     information relating to the current media source and to cease all I/O operations related
@@ -1366,8 +1376,14 @@ QList<QAudio::Role> QMediaPlayer::supportedAudioRoles() const
     \property QMediaPlayer::volume
     \brief the current playback volume.
 
-    The playback volume is linear in effect and the value can range from 0 -
-    100, values outside this range will be clamped.
+    The playback volume is scaled linearly, ranging from \c 0 (silence) to \c 100 (full volume).
+    Values outside this range will be clamped.
+
+    By default the volume is \c 100.
+
+    UI volume controls should usually be scaled nonlinearly. For example, using a logarithmic scale
+    will produce linear changes in perceived loudness, which is what a user would normally expect
+    from a volume control. See QAudio::convertVolume() for more details.
 */
 
 /*!

@@ -47,6 +47,7 @@
 #include <QMediaService>
 #include <QMediaPlaylist>
 #include <QVideoProbe>
+#include <QAudioProbe>
 #include <QMediaMetaData>
 #include <QtWidgets>
 
@@ -55,9 +56,7 @@ Player::Player(QWidget *parent)
     , videoWidget(0)
     , coverLabel(0)
     , slider(0)
-#ifndef PLAYER_NO_COLOROPTIONS
     , colorDialog(0)
-#endif
 {
 //! [create-objs]
     player = new QMediaPlayer(this);
@@ -75,6 +74,7 @@ Player::Player(QWidget *parent)
     connect(player, SIGNAL(bufferStatusChanged(int)), this, SLOT(bufferingProgress(int)));
     connect(player, SIGNAL(videoAvailableChanged(bool)), this, SLOT(videoAvailableChanged(bool)));
     connect(player, SIGNAL(error(QMediaPlayer::Error)), this, SLOT(displayErrorMessage()));
+    connect(player, &QMediaPlayer::stateChanged, this, &Player::stateChanged);
 
 //! [2]
     videoWidget = new VideoWidget(this);
@@ -98,14 +98,20 @@ Player::Player(QWidget *parent)
 
     labelHistogram = new QLabel(this);
     labelHistogram->setText("Histogram:");
-    histogram = new HistogramWidget(this);
+    videoHistogram = new HistogramWidget(this);
+    audioHistogram = new HistogramWidget(this);
     QHBoxLayout *histogramLayout = new QHBoxLayout;
     histogramLayout->addWidget(labelHistogram);
-    histogramLayout->addWidget(histogram, 1);
+    histogramLayout->addWidget(videoHistogram, 1);
+    histogramLayout->addWidget(audioHistogram, 2);
 
-    probe = new QVideoProbe(this);
-    connect(probe, SIGNAL(videoFrameProbed(QVideoFrame)), histogram, SLOT(processFrame(QVideoFrame)));
-    probe->setSource(player);
+    videoProbe = new QVideoProbe(this);
+    connect(videoProbe, SIGNAL(videoFrameProbed(QVideoFrame)), videoHistogram, SLOT(processFrame(QVideoFrame)));
+    videoProbe->setSource(player);
+
+    audioProbe = new QAudioProbe(this);
+    connect(audioProbe, SIGNAL(audioBufferProbed(QAudioBuffer)), audioHistogram, SLOT(processBuffer(QAudioBuffer)));
+    audioProbe->setSource(player);
 
     QPushButton *openButton = new QPushButton(tr("Open"), this);
 
@@ -135,11 +141,9 @@ Player::Player(QWidget *parent)
     fullScreenButton = new QPushButton(tr("FullScreen"), this);
     fullScreenButton->setCheckable(true);
 
-#ifndef PLAYER_NO_COLOROPTIONS
     colorButton = new QPushButton(tr("Color Options..."), this);
     colorButton->setEnabled(false);
     connect(colorButton, SIGNAL(clicked()), this, SLOT(showColorDialog()));
-#endif
 
     QBoxLayout *displayLayout = new QHBoxLayout;
     displayLayout->addWidget(videoWidget, 2);
@@ -152,9 +156,7 @@ Player::Player(QWidget *parent)
     controlLayout->addWidget(controls);
     controlLayout->addStretch(1);
     controlLayout->addWidget(fullScreenButton);
-#ifndef PLAYER_NO_COLOROPTIONS
     controlLayout->addWidget(colorButton);
-#endif
 
     QBoxLayout *layout = new QVBoxLayout;
     layout->addLayout(displayLayout);
@@ -175,9 +177,7 @@ Player::Player(QWidget *parent)
         controls->setEnabled(false);
         playlistView->setEnabled(false);
         openButton->setEnabled(false);
-#ifndef PLAYER_NO_COLOROPTIONS
         colorButton->setEnabled(false);
-#endif
         fullScreenButton->setEnabled(false);
     }
 
@@ -277,6 +277,7 @@ void Player::jump(const QModelIndex &index)
 
 void Player::playlistPositionChanged(int currentItem)
 {
+    clearHistogram();
     playlistView->setCurrentIndex(playlistModel->index(currentItem, 0));
 }
 
@@ -313,6 +314,12 @@ void Player::statusChanged(QMediaPlayer::MediaStatus status)
     }
 }
 
+void Player::stateChanged(QMediaPlayer::State state)
+{
+    if (state == QMediaPlayer::StoppedState)
+        clearHistogram();
+}
+
 void Player::handleCursor(QMediaPlayer::MediaStatus status)
 {
 #ifndef QT_NO_CURSOR
@@ -347,9 +354,7 @@ void Player::videoAvailableChanged(bool available)
         if (fullScreenButton->isChecked())
             videoWidget->setFullScreen(true);
     }
-#ifndef PLAYER_NO_COLOROPTIONS
     colorButton->setEnabled(available);
-#endif
 }
 
 void Player::setTrackInfo(const QString &info)
@@ -389,7 +394,6 @@ void Player::updateDurationInfo(qint64 currentInfo)
     labelDuration->setText(tStr);
 }
 
-#ifndef PLAYER_NO_COLOROPTIONS
 void Player::showColorDialog()
 {
     if (!colorDialog) {
@@ -434,4 +438,9 @@ void Player::showColorDialog()
     }
     colorDialog->show();
 }
-#endif
+
+void Player::clearHistogram()
+{
+    QMetaObject::invokeMethod(videoHistogram, "processFrame", Qt::QueuedConnection, Q_ARG(QVideoFrame, QVideoFrame()));
+    QMetaObject::invokeMethod(audioHistogram, "processBuffer", Qt::QueuedConnection, Q_ARG(QAudioBuffer, QAudioBuffer()));
+}

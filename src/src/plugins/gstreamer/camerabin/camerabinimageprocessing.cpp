@@ -1,40 +1,47 @@
 /****************************************************************************
 **
-** Copyright (C) 2015 The Qt Company Ltd.
-** Contact: http://www.qt.io/licensing/
+** Copyright (C) 2016 The Qt Company Ltd.
+** Contact: https://www.qt.io/licensing/
 **
 ** This file is part of the Qt Toolkit.
 **
-** $QT_BEGIN_LICENSE:LGPL21$
+** $QT_BEGIN_LICENSE:LGPL$
 ** Commercial License Usage
 ** Licensees holding valid commercial Qt licenses may use this file in
 ** accordance with the commercial license agreement provided with the
 ** Software or, alternatively, in accordance with the terms contained in
 ** a written agreement between you and The Qt Company. For licensing terms
-** and conditions see http://www.qt.io/terms-conditions. For further
-** information use the contact form at http://www.qt.io/contact-us.
+** and conditions see https://www.qt.io/terms-conditions. For further
+** information use the contact form at https://www.qt.io/contact-us.
 **
 ** GNU Lesser General Public License Usage
 ** Alternatively, this file may be used under the terms of the GNU Lesser
-** General Public License version 2.1 or version 3 as published by the Free
-** Software Foundation and appearing in the file LICENSE.LGPLv21 and
-** LICENSE.LGPLv3 included in the packaging of this file. Please review the
-** following information to ensure the GNU Lesser General Public License
-** requirements will be met: https://www.gnu.org/licenses/lgpl.html and
-** http://www.gnu.org/licenses/old-licenses/lgpl-2.1.html.
+** General Public License version 3 as published by the Free Software
+** Foundation and appearing in the file LICENSE.LGPL3 included in the
+** packaging of this file. Please review the following information to
+** ensure the GNU Lesser General Public License version 3 requirements
+** will be met: https://www.gnu.org/licenses/lgpl-3.0.html.
 **
-** As a special exception, The Qt Company gives you certain additional
-** rights. These rights are described in The Qt Company LGPL Exception
-** version 1.1, included in the file LGPL_EXCEPTION.txt in this package.
+** GNU General Public License Usage
+** Alternatively, this file may be used under the terms of the GNU
+** General Public License version 2.0 or (at your option) the GNU General
+** Public license version 3 or any later version approved by the KDE Free
+** Qt Foundation. The licenses are as published by the Free Software
+** Foundation and appearing in the file LICENSE.GPL2 and LICENSE.GPL3
+** included in the packaging of this file. Please review the following
+** information to ensure the GNU General Public License requirements will
+** be met: https://www.gnu.org/licenses/gpl-2.0.html and
+** https://www.gnu.org/licenses/gpl-3.0.html.
 **
 ** $QT_END_LICENSE$
 **
 ****************************************************************************/
 
+#include <QtMultimedia/private/qtmultimediaglobal_p.h>
 #include "camerabinimageprocessing.h"
 #include "camerabinsession.h"
 
-#ifdef USE_V4L
+#if QT_CONFIG(linux_v4l)
 #include "camerabinv4limageprocessing.h"
 #endif
 
@@ -50,11 +57,11 @@ CameraBinImageProcessing::CameraBinImageProcessing(CameraBinSession *session)
     : QCameraImageProcessingControl(session)
     , m_session(session)
     , m_whiteBalanceMode(QCameraImageProcessing::WhiteBalanceAuto)
-#ifdef USE_V4L
+#if QT_CONFIG(linux_v4l)
     , m_v4lImageControl(Q_NULLPTR)
 #endif
 {
-#ifdef HAVE_GST_PHOTOGRAPHY
+#if QT_CONFIG(gstreamer_photography)
     if (m_session->photography()) {
         m_mappedWbValues[GST_PHOTOGRAPHY_WB_MODE_AUTO] = QCameraImageProcessing::WhiteBalanceAuto;
         m_mappedWbValues[GST_PHOTOGRAPHY_WB_MODE_DAYLIGHT] = QCameraImageProcessing::WhiteBalanceSunlight;
@@ -90,7 +97,7 @@ CameraBinImageProcessing::CameraBinImageProcessing(CameraBinSession *session)
 #endif
 #endif
 
-#ifdef USE_V4L
+#if QT_CONFIG(linux_v4l)
       m_v4lImageControl = new CameraBinV4LImageProcessing(m_session);
       connect(m_session, &CameraBinSession::statusChanged,
               m_v4lImageControl, &CameraBinV4LImageProcessing::updateParametersInfo);
@@ -175,7 +182,7 @@ QCameraImageProcessing::WhiteBalanceMode CameraBinImageProcessing::whiteBalanceM
 
 bool CameraBinImageProcessing::setWhiteBalanceMode(QCameraImageProcessing::WhiteBalanceMode mode)
 {
-#ifdef HAVE_GST_PHOTOGRAPHY
+#if QT_CONFIG(gstreamer_photography)
     if (isWhiteBalanceModeSupported(mode)) {
         m_whiteBalanceMode = mode;
 #if GST_CHECK_VERSION(1, 2, 0)
@@ -196,7 +203,7 @@ bool CameraBinImageProcessing::setWhiteBalanceMode(QCameraImageProcessing::White
 
 bool CameraBinImageProcessing::isWhiteBalanceModeSupported(QCameraImageProcessing::WhiteBalanceMode mode) const
 {
-#ifdef HAVE_GST_PHOTOGRAPHY
+#if QT_CONFIG(gstreamer_photography)
     return m_mappedWbValues.values().contains(mode);
 #else
     Q_UNUSED(mode);
@@ -206,7 +213,7 @@ bool CameraBinImageProcessing::isWhiteBalanceModeSupported(QCameraImageProcessin
 
 bool CameraBinImageProcessing::isParameterSupported(QCameraImageProcessingControl::ProcessingParameter parameter) const
 {
-#ifdef HAVE_GST_PHOTOGRAPHY
+#if QT_CONFIG(gstreamer_photography)
     if (parameter == QCameraImageProcessingControl::WhiteBalancePreset
             || parameter == QCameraImageProcessingControl::ColorFilter) {
         if (m_session->photography())
@@ -221,7 +228,7 @@ bool CameraBinImageProcessing::isParameterSupported(QCameraImageProcessingContro
             return true;
     }
 
-#ifdef USE_V4L
+#if QT_CONFIG(linux_v4l)
     if (m_v4lImageControl->isParameterSupported(parameter))
         return true;
 #endif
@@ -237,14 +244,14 @@ bool CameraBinImageProcessing::isParameterValueSupported(QCameraImageProcessingC
     case SaturationAdjustment: {
         const bool isGstColorBalanceValueSupported = GST_IS_COLOR_BALANCE(m_session->cameraBin())
                 && qAbs(value.toReal()) <= 1.0;
-#ifdef USE_V4L
+#if QT_CONFIG(linux_v4l)
         if (!isGstColorBalanceValueSupported)
             return m_v4lImageControl->isParameterValueSupported(parameter, value);
 #endif
         return isGstColorBalanceValueSupported;
     }
     case SharpeningAdjustment: {
-#ifdef USE_V4L
+#if QT_CONFIG(linux_v4l)
         return m_v4lImageControl->isParameterValueSupported(parameter, value);
 #else
         return false;
@@ -254,14 +261,14 @@ bool CameraBinImageProcessing::isParameterValueSupported(QCameraImageProcessingC
         const QCameraImageProcessing::WhiteBalanceMode mode =
                 value.value<QCameraImageProcessing::WhiteBalanceMode>();
         const bool isPhotographyWhiteBalanceSupported = isWhiteBalanceModeSupported(mode);
-#ifdef USE_V4L
+#if QT_CONFIG(linux_v4l)
         if (!isPhotographyWhiteBalanceSupported)
             return m_v4lImageControl->isParameterValueSupported(parameter, value);
 #endif
         return isPhotographyWhiteBalanceSupported;
     }
     case ColorTemperature: {
-#ifdef USE_V4L
+#if QT_CONFIG(linux_v4l)
         return m_v4lImageControl->isParameterValueSupported(parameter, value);
 #else
         return false;
@@ -269,7 +276,7 @@ bool CameraBinImageProcessing::isParameterValueSupported(QCameraImageProcessingC
     }
     case ColorFilter: {
         const QCameraImageProcessing::ColorFilter filter = value.value<QCameraImageProcessing::ColorFilter>();
-#ifdef HAVE_GST_PHOTOGRAPHY
+#if QT_CONFIG(gstreamer_photography)
         return m_filterMap.contains(filter);
 #else
         return filter == QCameraImageProcessing::ColorFilterNone;
@@ -288,7 +295,7 @@ QVariant CameraBinImageProcessing::parameter(
     switch (parameter) {
     case QCameraImageProcessingControl::WhiteBalancePreset: {
         const QCameraImageProcessing::WhiteBalanceMode mode = whiteBalanceMode();
-#ifdef USE_V4L
+#if QT_CONFIG(linux_v4l)
         if (mode == QCameraImageProcessing::WhiteBalanceAuto
                 || mode == QCameraImageProcessing::WhiteBalanceManual) {
             return m_v4lImageControl->parameter(parameter);
@@ -297,14 +304,14 @@ QVariant CameraBinImageProcessing::parameter(
         return QVariant::fromValue<QCameraImageProcessing::WhiteBalanceMode>(mode);
     }
     case QCameraImageProcessingControl::ColorTemperature: {
-#ifdef USE_V4L
+#if QT_CONFIG(linux_v4l)
         return m_v4lImageControl->parameter(parameter);
 #else
         return QVariant();
 #endif
     }
     case QCameraImageProcessingControl::ColorFilter:
-#ifdef HAVE_GST_PHOTOGRAPHY
+#if QT_CONFIG(gstreamer_photography)
         if (GstPhotography *photography = m_session->photography()) {
 #if GST_CHECK_VERSION(1, 0, 0)
             GstPhotographyColorToneMode mode = GST_PHOTOGRAPHY_COLOR_TONE_MODE_NORMAL;
@@ -319,7 +326,7 @@ QVariant CameraBinImageProcessing::parameter(
         return QVariant::fromValue(QCameraImageProcessing::ColorFilterNone);
     default: {
         const bool isGstParameterSupported = m_values.contains(parameter);
-#ifdef USE_V4L
+#if QT_CONFIG(linux_v4l)
         if (!isGstParameterSupported) {
             if (parameter == QCameraImageProcessingControl::BrightnessAdjustment
                     || parameter == QCameraImageProcessingControl::ContrastAdjustment
@@ -342,7 +349,7 @@ void CameraBinImageProcessing::setParameter(QCameraImageProcessingControl::Proce
     switch (parameter) {
     case ContrastAdjustment: {
         if (!setColorBalanceValue("contrast", value.toReal())) {
-#ifdef USE_V4L
+#if QT_CONFIG(linux_v4l)
             m_v4lImageControl->setParameter(parameter, value);
 #endif
         }
@@ -350,7 +357,7 @@ void CameraBinImageProcessing::setParameter(QCameraImageProcessingControl::Proce
         break;
     case BrightnessAdjustment: {
         if (!setColorBalanceValue("brightness", value.toReal())) {
-#ifdef USE_V4L
+#if QT_CONFIG(linux_v4l)
             m_v4lImageControl->setParameter(parameter, value);
 #endif
         }
@@ -358,21 +365,21 @@ void CameraBinImageProcessing::setParameter(QCameraImageProcessingControl::Proce
         break;
     case SaturationAdjustment: {
         if (!setColorBalanceValue("saturation", value.toReal())) {
-#ifdef USE_V4L
+#if QT_CONFIG(linux_v4l)
             m_v4lImageControl->setParameter(parameter, value);
 #endif
         }
     }
         break;
     case SharpeningAdjustment: {
-#ifdef USE_V4L
+#if QT_CONFIG(linux_v4l)
         m_v4lImageControl->setParameter(parameter, value);
 #endif
     }
         break;
     case WhiteBalancePreset: {
         if (!setWhiteBalanceMode(value.value<QCameraImageProcessing::WhiteBalanceMode>())) {
-#ifdef USE_V4L
+#if QT_CONFIG(linux_v4l)
             const QCameraImageProcessing::WhiteBalanceMode mode =
                     value.value<QCameraImageProcessing::WhiteBalanceMode>();
             if (mode == QCameraImageProcessing::WhiteBalanceAuto
@@ -385,13 +392,13 @@ void CameraBinImageProcessing::setParameter(QCameraImageProcessingControl::Proce
     }
         break;
     case QCameraImageProcessingControl::ColorTemperature: {
-#ifdef USE_V4L
+#if QT_CONFIG(linux_v4l)
         m_v4lImageControl->setParameter(parameter, value);
 #endif
         break;
     }
     case QCameraImageProcessingControl::ColorFilter:
-#ifdef HAVE_GST_PHOTOGRAPHY
+#if QT_CONFIG(gstreamer_photography)
         if (GstPhotography *photography = m_session->photography()) {
 #if GST_CHECK_VERSION(1, 0, 0)
             gst_photography_set_color_tone_mode(photography, m_filterMap.value(
@@ -412,7 +419,7 @@ void CameraBinImageProcessing::setParameter(QCameraImageProcessingControl::Proce
     updateColorBalanceValues();
 }
 
-#ifdef HAVE_GST_PHOTOGRAPHY
+#if QT_CONFIG(gstreamer_photography)
 void CameraBinImageProcessing::lockWhiteBalance()
 {
 #if GST_CHECK_VERSION(1, 2, 0)

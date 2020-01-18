@@ -56,6 +56,7 @@ class QPushButton;
 class QSlider;
 class QVideoProbe;
 class QVideoWidget;
+class QAudioProbe;
 QT_END_NAMESPACE
 
 class PlaylistModel;
@@ -89,16 +90,16 @@ private slots:
     void playlistPositionChanged(int);
 
     void statusChanged(QMediaPlayer::MediaStatus status);
+    void stateChanged(QMediaPlayer::State state);
     void bufferingProgress(int progress);
     void videoAvailableChanged(bool available);
 
     void displayErrorMessage();
 
-#ifndef PLAYER_NO_COLOROPTIONS
     void showColorDialog();
-#endif
 
 private:
+    void clearHistogram();
     void setTrackInfo(const QString &info);
     void setStatusInfo(const QString &info);
     void handleCursor(QMediaPlayer::MediaStatus status);
@@ -111,14 +112,14 @@ private:
     QSlider *slider;
     QLabel *labelDuration;
     QPushButton *fullScreenButton;
-#ifndef PLAYER_NO_COLOROPTIONS
     QPushButton *colorButton;
     QDialog *colorDialog;
-#endif
 
     QLabel *labelHistogram;
-    HistogramWidget *histogram;
-    QVideoProbe *probe;
+    HistogramWidget *videoHistogram;
+    HistogramWidget *audioHistogram;
+    QVideoProbe *videoProbe;
+    QAudioProbe *audioProbe;
 
     PlaylistModel *playlistModel;
     QAbstractItemView *playlistView;

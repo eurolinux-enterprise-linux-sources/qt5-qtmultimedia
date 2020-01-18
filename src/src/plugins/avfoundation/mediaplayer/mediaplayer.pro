@@ -6,9 +6,9 @@ CONFIG += no_keywords
 
 QT += multimedia-private network
 
-LIBS += -framework AVFoundation -framework CoreMedia
+LIBS += -framework CoreMedia -framework CoreVideo -framework QuartzCore
 
-DEFINES += QMEDIA_AVF_MEDIAPLAYER
+QMAKE_USE += avfoundation
 
 HEADERS += \
     avfmediaplayercontrol.h \
@@ -39,8 +39,8 @@ OBJECTIVE_SOURCES += \
             avfvideowidget.mm
     }
 
-ios {
-    contains(QT_CONFIG, opengl.*) {
+ios|tvos {
+    qtConfig(opengl) {
         HEADERS += \
             avfvideoframerenderer_ios.h \
             avfvideorenderercontrol.h \
@@ -51,10 +51,11 @@ ios {
             avfvideorenderercontrol.mm \
             avfdisplaylink.mm
     }
+    LIBS += -framework Foundation
 } else {
-    LIBS += -framework QuartzCore -framework AppKit
+    LIBS += -framework AppKit
 
-    contains(QT_CONFIG, opengl.*) {
+    qtConfig(opengl) {
         HEADERS += \
             avfvideoframerenderer.h \
             avfvideorenderercontrol.h \

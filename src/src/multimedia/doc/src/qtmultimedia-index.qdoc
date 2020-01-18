@@ -54,7 +54,7 @@
     import statement in your \c {.qml} file.
 
     \code
-     import QtMultimedia 5.6
+     import QtMultimedia 5.8
     \endcode
 
     If you intend to use the C++ classes in your application, include the C++
@@ -157,8 +157,8 @@
     following topics provide more platform-specific information.
 
      \list
-      \li \l{Qt Multimedia on BlackBerry}{BlackBerry}
       \li \l{Qt Multimedia on Windows}{Windows}
+      \li \l{Qt Multimedia on iOS}{iOS}
      \endlist
 
     \section2 Reference
