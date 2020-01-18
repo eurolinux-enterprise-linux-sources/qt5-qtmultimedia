@@ -23,7 +23,7 @@
 
 Summary: Qt5 - Multimedia support
 Name:    qt5-%{qt_module}
-Version: 5.9.2
+Version: 5.9.7
 Release: 1%{?dist}
 
 # See LGPL_EXCEPTIONS.txt, LICENSE.GPL3, respectively, for exception details
@@ -176,6 +176,10 @@ popd
 
 
 %changelog
+* Thu Feb 07 2019 Jan Grulich <jgrulich@redhat.com> - 5.9.7-1
+- Update to 5.9.7
+  Resolves: bz#1564009
+
 * Fri Oct 06 2017 Jan Grulich <jgrulich@redhat.com> - 5.9.2-1
 - Update 5.9.2
   Resolves: bz#1482784

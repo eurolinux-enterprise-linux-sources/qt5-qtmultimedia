@@ -335,7 +335,14 @@ QSGNode *QDeclarativeVideoRendererBackend::updatePaintNode(QSGNode *oldNode,
             for (QSGVideoNodeFactoryInterface* factory : qAsConst(m_videoNodeFactories)) {
                 // Get a node that supports our frame. The surface is irrelevant, our
                 // QSGVideoItemSurface supports (logically) anything.
-                videoNode = factory->createNode(QVideoSurfaceFormat(m_frame.size(), m_frame.pixelFormat(), m_frame.handleType()));
+                QVideoSurfaceFormat nodeFormat(m_frame.size(), m_frame.pixelFormat(), m_frame.handleType());
+                const QVideoSurfaceFormat surfaceFormat = m_surface->surfaceFormat();
+                nodeFormat.setYCbCrColorSpace(surfaceFormat.yCbCrColorSpace());
+                nodeFormat.setPixelAspectRatio(surfaceFormat.pixelAspectRatio());
+                nodeFormat.setScanLineDirection(surfaceFormat.scanLineDirection());
+                nodeFormat.setViewport(surfaceFormat.viewport());
+                nodeFormat.setFrameRate(surfaceFormat.frameRate());
+                videoNode = factory->createNode(nodeFormat);
                 if (videoNode) {
                     qCDebug(qLcVideo) << "updatePaintNode: Video node created. Handle type:" << m_frame.handleType()
                                      << " Supported formats for the handle by this node:"
@@ -375,9 +382,9 @@ QAbstractVideoSurface *QDeclarativeVideoRendererBackend::videoSurface() const
 QRectF QDeclarativeVideoRendererBackend::adjustedViewport() const
 {
     const QRectF viewport = m_surface->surfaceFormat().viewport();
-    const QSize pixelAspectRatio = m_surface->surfaceFormat().pixelAspectRatio();
+    const QSizeF pixelAspectRatio = m_surface->surfaceFormat().pixelAspectRatio();
 
-    if (pixelAspectRatio.height() != 0) {
+    if (pixelAspectRatio.isValid()) {
         const qreal ratio = pixelAspectRatio.width() / pixelAspectRatio.height();
         QRectF result = viewport;
         result.setX(result.x() * ratio);
