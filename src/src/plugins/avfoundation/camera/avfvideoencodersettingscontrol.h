@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2015 The Qt Company Ltd.
+** Copyright (C) 2016 The Qt Company Ltd.
 ** Contact: http://www.qt.io/licensing/
 **
 ** This file is part of the Qt Toolkit.
@@ -31,48 +31,52 @@
 **
 ****************************************************************************/
 
-#ifndef ANDROIDSURFACETEXTURE_H
-#define ANDROIDSURFACETEXTURE_H
+#ifndef AVFVIDEOENCODERSETTINGSCONTROL_H
+#define AVFVIDEOENCODERSETTINGSCONTROL_H
 
-#include <qobject.h>
-#include <QtCore/private/qjni_p.h>
+#include <qvideoencodersettingscontrol.h>
 
-#include <QMatrix4x4>
+#include "avfcamerautility.h"
+#import <AVFoundation/AVFoundation.h>
+
+@class NSDictionary;
 
 QT_BEGIN_NAMESPACE
 
-class AndroidSurfaceTexture : public QObject
+class AVFCameraService;
+
+class AVFVideoEncoderSettingsControl : public QVideoEncoderSettingsControl
 {
     Q_OBJECT
+
 public:
-    explicit AndroidSurfaceTexture(quint32 texName);
-    ~AndroidSurfaceTexture();
+    explicit AVFVideoEncoderSettingsControl(AVFCameraService *service);
 
-    jobject surfaceTexture();
-    jobject surface();
-    jobject surfaceHolder();
-    inline bool isValid() const { return m_surfaceTexture.isValid(); }
+    QList<QSize> supportedResolutions(const QVideoEncoderSettings &requestedVideoSettings,
+                                      bool *continuous = 0) const Q_DECL_OVERRIDE;
 
-    QMatrix4x4 getTransformMatrix();
-    void release(); // API level 14
-    void updateTexImage();
+    QList<qreal> supportedFrameRates(const QVideoEncoderSettings &requestedVideoSettings,
+                                     bool *continuous = 0) const Q_DECL_OVERRIDE;
 
-    void attachToGLContext(quint32 texName); // API level 16
-    void detachFromGLContext(); // API level 16
+    QStringList supportedVideoCodecs() const Q_DECL_OVERRIDE;
+    QString videoCodecDescription(const QString &codecName) const Q_DECL_OVERRIDE;
 
-    static bool initJNI(JNIEnv *env);
+    QVideoEncoderSettings videoSettings() const Q_DECL_OVERRIDE;
+    void setVideoSettings(const QVideoEncoderSettings &requestedVideoSettings) Q_DECL_OVERRIDE;
 
-Q_SIGNALS:
-    void frameAvailable();
+    NSDictionary *applySettings(AVCaptureConnection *connection);
+    void unapplySettings(AVCaptureConnection *connection);
 
 private:
-    void setOnFrameAvailableListener(const QJNIObjectPrivate &listener);
+    AVFCameraService *m_service;
 
-    QJNIObjectPrivate m_surfaceTexture;
-    QJNIObjectPrivate m_surface;
-    QJNIObjectPrivate m_surfaceHolder;
+    QVideoEncoderSettings m_requestedSettings;
+    QVideoEncoderSettings m_actualSettings;
+
+    AVCaptureDeviceFormat *m_restoreFormat;
+    AVFPSRange m_restoreFps;
 };
 
 QT_END_NAMESPACE
 
-#endif // ANDROIDSURFACETEXTURE_H
+#endif // AVFVIDEOENCODERSETTINGSCONTROL_H

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2015 The Qt Company Ltd.
+** Copyright (C) 2016 The Qt Company Ltd.
 ** Contact: http://www.qt.io/licensing/
 **
 ** This file is part of the Qt Toolkit.
@@ -31,48 +31,39 @@
 **
 ****************************************************************************/
 
-#ifndef ANDROIDSURFACETEXTURE_H
-#define ANDROIDSURFACETEXTURE_H
+#ifndef AVFAUDIOENCODERSETTINGSCONTROL_H
+#define AVFAUDIOENCODERSETTINGSCONTROL_H
 
-#include <qobject.h>
-#include <QtCore/private/qjni_p.h>
+#include <qaudioencodersettingscontrol.h>
 
-#include <QMatrix4x4>
+@class NSDictionary;
+@class AVCaptureAudioDataOutput;
 
 QT_BEGIN_NAMESPACE
 
-class AndroidSurfaceTexture : public QObject
+class AVFCameraService;
+
+class AVFAudioEncoderSettingsControl : public QAudioEncoderSettingsControl
 {
-    Q_OBJECT
 public:
-    explicit AndroidSurfaceTexture(quint32 texName);
-    ~AndroidSurfaceTexture();
+    explicit AVFAudioEncoderSettingsControl(AVFCameraService *service);
 
-    jobject surfaceTexture();
-    jobject surface();
-    jobject surfaceHolder();
-    inline bool isValid() const { return m_surfaceTexture.isValid(); }
+    QStringList supportedAudioCodecs() const Q_DECL_OVERRIDE;
+    QString codecDescription(const QString &codecName) const Q_DECL_OVERRIDE;
+    QList<int> supportedSampleRates(const QAudioEncoderSettings &settings, bool *continuous = 0) const Q_DECL_OVERRIDE;
+    QAudioEncoderSettings audioSettings() const Q_DECL_OVERRIDE;
+    void setAudioSettings(const QAudioEncoderSettings &settings) Q_DECL_OVERRIDE;
 
-    QMatrix4x4 getTransformMatrix();
-    void release(); // API level 14
-    void updateTexImage();
-
-    void attachToGLContext(quint32 texName); // API level 16
-    void detachFromGLContext(); // API level 16
-
-    static bool initJNI(JNIEnv *env);
-
-Q_SIGNALS:
-    void frameAvailable();
+    NSDictionary *applySettings();
+    void unapplySettings();
 
 private:
-    void setOnFrameAvailableListener(const QJNIObjectPrivate &listener);
+    AVFCameraService *m_service;
 
-    QJNIObjectPrivate m_surfaceTexture;
-    QJNIObjectPrivate m_surface;
-    QJNIObjectPrivate m_surfaceHolder;
+    QAudioEncoderSettings m_requestedSettings;
+    QAudioEncoderSettings m_actualSettings;
 };
 
 QT_END_NAMESPACE
 
-#endif // ANDROIDSURFACETEXTURE_H
+#endif // AVFAUDIOENCODERSETTINGSCONTROL_H

@@ -1,6 +1,6 @@
 /****************************************************************************
 **
-** Copyright (C) 2015 The Qt Company Ltd.
+** Copyright (C) 2016 The Qt Company Ltd.
 ** Contact: http://www.qt.io/licensing/
 **
 ** This file is part of the Qt Toolkit.
@@ -31,48 +31,33 @@
 **
 ****************************************************************************/
 
-#ifndef ANDROIDSURFACETEXTURE_H
-#define ANDROIDSURFACETEXTURE_H
+#ifndef AVFMEDIACONTAINERCONTROL_H
+#define AVFMEDIACONTAINERCONTROL_H
 
-#include <qobject.h>
-#include <QtCore/private/qjni_p.h>
+#include <qmediacontainercontrol.h>
 
-#include <QMatrix4x4>
+@class NSString;
 
 QT_BEGIN_NAMESPACE
 
-class AndroidSurfaceTexture : public QObject
+class AVFCameraService;
+
+class AVFMediaContainerControl : public QMediaContainerControl
 {
-    Q_OBJECT
 public:
-    explicit AndroidSurfaceTexture(quint32 texName);
-    ~AndroidSurfaceTexture();
+    explicit AVFMediaContainerControl(AVFCameraService *service);
 
-    jobject surfaceTexture();
-    jobject surface();
-    jobject surfaceHolder();
-    inline bool isValid() const { return m_surfaceTexture.isValid(); }
+    QStringList supportedContainers() const Q_DECL_OVERRIDE;
+    QString containerFormat() const Q_DECL_OVERRIDE;
+    void setContainerFormat(const QString &format) Q_DECL_OVERRIDE;
+    QString containerDescription(const QString &formatMimeType) const Q_DECL_OVERRIDE;
 
-    QMatrix4x4 getTransformMatrix();
-    void release(); // API level 14
-    void updateTexImage();
-
-    void attachToGLContext(quint32 texName); // API level 16
-    void detachFromGLContext(); // API level 16
-
-    static bool initJNI(JNIEnv *env);
-
-Q_SIGNALS:
-    void frameAvailable();
+    NSString *fileType() const;
 
 private:
-    void setOnFrameAvailableListener(const QJNIObjectPrivate &listener);
-
-    QJNIObjectPrivate m_surfaceTexture;
-    QJNIObjectPrivate m_surface;
-    QJNIObjectPrivate m_surfaceHolder;
+    QString m_format;
 };
 
 QT_END_NAMESPACE
 
-#endif // ANDROIDSURFACETEXTURE_H
+#endif // AVFMEDIACONTAINERCONTROL_H

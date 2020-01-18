@@ -21,21 +21,19 @@
 %global gst 1.0
 %endif
 
-#define prerelease
-
 Summary: Qt5 - Multimedia support
 Name:    qt5-%{qt_module}
-Version: 5.6.1
-Release: 10%{?prerelease:.%{prerelease}}%{?dist}
+Version: 5.6.2
+Release: 1%{?dist}
 
 # See LGPL_EXCEPTIONS.txt, LICENSE.GPL3, respectively, for exception details
 License: LGPLv2 with exceptions or GPLv3 with exceptions
 Url:     http://www.qt.io
-Source0: http://download.qt.io/snapshots/qt/5.6/%{version}%{?prerelease:-%{prerelease}}/submodules/%{qt_module}-opensource-src-%{version}%{?prerelease:-%{prerelease}}.tar.xz
+Source0: http://download.qt.io/official_releases/qt/5.6/%{version}/submodules/%{qt_module}-opensource-src-%{version}.tar.xz
 
 BuildRequires: cmake
 BuildRequires: qt5-qtbase-devel >= %{version}
-BuildRequires: pkgconfig(Qt5Quick) >= %{version}
+BuildRequires: qt5-qtdeclarative-devel >= %{version}
 BuildRequires: pkgconfig(alsa)
 %if "%{?gst}" == "0.10"
 BuildRequires: pkgconfig(gstreamer-interfaces-0.10)
@@ -52,6 +50,8 @@ BuildRequires: pkgconfig(libpulse) pkgconfig(libpulse-mainloop-glib)
 BuildRequires: pkgconfig(openal)
 %endif
 BuildRequires: pkgconfig(xv)
+
+BuildRequires: qt5-qtbase-private-devel
 
 %{?_qt5:Requires: %{_qt5}%{?_isa} = %{_qt5_version}}
 
@@ -89,7 +89,7 @@ Requires: %{name}%{?_isa} = %{version}-%{release}
 
 
 %prep
-%setup -q -n %{qt_module}-opensource-src-%{version}%{?prerelease:-%{prerelease}}
+%setup -q -n %{qt_module}-opensource-src-%{version}
 
 
 %build
@@ -179,6 +179,10 @@ popd
 
 
 %changelog
+* Wed Jan 11 2017 Jan Grulich <jgrulich@redhat.com> - 5.6.2-1
+- Update to 5.6.2
+  Resolves: bz#1384823
+
 * Tue Aug 30 2016 Jan Grulich <jgrulich@redhat.com> - 5.6.1-10
 - Increase build version to have newer version than in EPEL
   Resolves: bz#1317406
